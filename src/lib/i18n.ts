@@ -58,6 +58,10 @@ export const translations = {
     createFailed: "Failed to create item",
     renameSuccess: "Item renamed successfully",
     renameFailed: "Failed to rename item",
+    goToSymbol: "Go to Symbol...",
+    changeAllOccurrences: "Change All Occurrences",
+    formatDocument: "Format Document",
+    commandPalette: "Command Palette",
   },
   zh: {
     file: "文件",
@@ -116,6 +120,10 @@ export const translations = {
     createFailed: "创建失败",
     renameSuccess: "重命名成功",
     renameFailed: "重命名失败",
+    goToSymbol: "转到符号...",
+    changeAllOccurrences: "更改所有匹配项",
+    formatDocument: "格式化文档",
+    commandPalette: "命令面板",
   },
   ko: {
     file: "파일",
@@ -174,6 +182,10 @@ export const translations = {
     createFailed: "생성 실패",
     renameSuccess: "이름 변경 성공",
     renameFailed: "이름 변경 실패",
+    goToSymbol: "기호로 이동...",
+    changeAllOccurrences: "모든 항목 변경",
+    formatDocument: "문서 서식 지정",
+    commandPalette: "명령 팔레트",
   },
 }
 

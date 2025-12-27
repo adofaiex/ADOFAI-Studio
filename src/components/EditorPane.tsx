@@ -259,36 +259,19 @@ export function EditorPane({
     if (tab?.path.endsWith(".adofai")) {
       editor.addAction({
         id: "format-as-adofai",
-        label: t.formatAsADOFAI,
+        label: "Format as ADOFAI Standard Level",
         contextMenuGroupId: "modification",
         contextMenuOrder: 1.5,
         run: handleFormatAsADOFAI,
       })
 
-      registerADOFAIHints(monaco, language)
+      registerADOFAIHints(monaco)
     }
   }
 
-  useEffect(() => {
-    if (monacoRef.current && tab?.path.endsWith(".adofai")) {
-      registerADOFAIHints(monacoRef.current, language)
-    }
-  }, [language, tab?.path])
+  // No Monaco i18n overrides; keep default English UI for stability
 
-  useEffect(() => {
-    if (editorRef.current && tab?.path.endsWith(".adofai")) {
-      // Re-register the action with new language label
-      editorRef.current.addAction({
-        id: "format-as-adofai",
-        label: t.formatAsADOFAI,
-        contextMenuGroupId: "modification",
-        contextMenuOrder: 1.5,
-        run: handleFormatAsADOFAI,
-      })
-    }
-  }, [language, tab?.path])
-
-  const registerADOFAIHints = (monaco: any, lang: Language) => {
+  const registerADOFAIHints = (monaco: any) => {
     registeredProvidersRef.current.forEach((disposable) => disposable.dispose())
     registeredProvidersRef.current = []
 
@@ -303,7 +286,7 @@ export function EditorPane({
         }
 
         const suggestions = Object.entries(adofaiSchema.comment).map(([key, value]: [string, any]) => {
-          const description = value[lang] || value.en
+          const description = (value as any)[language] || value.en
           return {
             label: key,
             kind: monaco.languages.CompletionItemKind.Property,
@@ -324,9 +307,9 @@ export function EditorPane({
 
         const fieldName = word.word.replace(/"/g, "")
         const fieldData = adofaiSchema.comment[fieldName as keyof typeof adofaiSchema.comment]
-
+  
         if (fieldData) {
-          const description = (fieldData as any)[lang] || (fieldData as any).en
+          const description = (fieldData as any)[language] || (fieldData as any).en
           return {
             range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
             contents: [{ value: `**${fieldName}**` }, { value: description }],
@@ -339,6 +322,12 @@ export function EditorPane({
 
     registeredProvidersRef.current.push(completionProvider, hoverProvider)
   }
+
+  useEffect(() => {
+    if (monacoRef.current && tab?.path.endsWith(".adofai")) {
+      registerADOFAIHints(monacoRef.current)
+    }
+  }, [language, tab?.path])
 
   useEffect(() => {
     return () => {

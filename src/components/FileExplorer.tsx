@@ -17,6 +17,7 @@ import type { FileEntry } from "../types/electron"
 import type { ViewMode } from "../types/file-system"
 import StringParser from "../lib/StringParser"
 import { type Language, useTranslation } from "../lib/i18n"
+import { Level } from "adofai"
 
 interface FileExplorerProps {
   onFileSelect: (filePath: string) => void
@@ -26,6 +27,7 @@ interface FileExplorerProps {
   onRootPathChange: (path: string | null) => void
   isCollapsed?: boolean
   onToggleCollapse?: (collapsed: boolean) => void
+  onTransformFile?: (path: string, content: string) => void
 }
 
 interface TreeNode extends FileEntry {
@@ -46,6 +48,85 @@ interface ContextMenuState {
   isDirectory: boolean
 }
 
+type PresetType = "exclude" | "special"
+interface Preset {
+  type: PresetType
+  events: string[]
+}
+
+const preset_noeffect: Preset = {
+  type: "exclude",
+  events: [
+    "Flash",
+    "SetFilter",
+    "SetFilterAdvanced",
+    "HallOfMirrors",
+    "Bloom",
+    "ScalePlanets",
+    "ScreenTile",
+    "ScreenScroll",
+    "ShakeScreen",
+  ],
+}
+
+const preset_noholds: Preset = { type: "exclude", events: ["Hold"] }
+const preset_nomovecamera: Preset = { type: "exclude", events: ["MoveCamera"] }
+
+const preset_noeffect_completely: Preset = {
+  type: "exclude",
+  events: [
+    "AddDecoration",
+    "AddText",
+    "AddObject",
+    "Checkpoint",
+    "SetHitsound",
+    "PlaySound",
+    "SetPlanetRotation",
+    "ScalePlanets",
+    "ColorTrack",
+    "AnimateTrack",
+    "RecolorTrack",
+    "MoveTrack",
+    "PositionTrack",
+    "MoveDecorations",
+    "SetText",
+    "SetObject",
+    "SetDefaultText",
+    "CustomBackground",
+    "Flash",
+    "MoveCamera",
+    "SetFilter",
+    "HallOfMirrors",
+    "ShakeScreen",
+    "Bloom",
+    "ScreenTile",
+    "ScreenScroll",
+    "SetFrameRate",
+    "RepeatEvents",
+    "SetConditionalEvents",
+    "EditorComment",
+    "Bookmark",
+    "Hold",
+    "SetHoldSound",
+    "Hide",
+    "ScaleMargin",
+    "ScaleRadius",
+  ],
+}
+
+const preset_inner_no_deco: Preset = {
+  type: "special",
+  events: ["MoveDecorations", "SetText", "SetObject", "SetDefaultText"],
+}
+
+const presets: Record<string, Preset> = {
+  preset_noeffect,
+  preset_noholds,
+  preset_nomovecamera,
+  preset_noeffect_completely,
+  preset_inner_no_deco,
+}
+
 export function FileExplorer({
   onFileSelect,
   selectedFile,
@@ -54,6 +135,7 @@ export function FileExplorer({
   onRootPathChange,
   isCollapsed: externalIsCollapsed,
   onToggleCollapse,
+  onTransformFile,
 }: FileExplorerProps) {
   const t = useTranslation(language)
   const [tree, setTree] = useState<TreeNode[]>([])
@@ -85,6 +167,17 @@ export function FileExplorer({
     defaultValue: "",
     callback: () => {},
   })
+  const [selectDialog, setSelectDialog] = useState<{
+    isOpen: boolean
+    title: string
+    options: string[]
+    callback: (value: string | null) => void
+  }>({
+    isOpen: false,
+    title: "",
+    options: [],
+    callback: () => {},
+  })
   const viewSelectorRef = useRef<HTMLDivElement>(null)
 
   const showPrompt = (title: string, defaultValue: string): Promise<string | null> => {
@@ -95,6 +188,19 @@ export function FileExplorer({
         defaultValue,
         callback: (value) => {
           setPromptDialog((prev) => ({ ...prev, isOpen: false }))
+          resolve(value)
+        },
+      })
+    })
+  }
+  const showSelect = (title: string, options: string[]): Promise<string | null> => {
+    return new Promise((resolve) => {
+      setSelectDialog({
+        isOpen: true,
+        title,
+        options,
+        callback: (value) => {
+          setSelectDialog((prev) => ({ ...prev, isOpen: false }))
           resolve(value)
         },
       })
@@ -465,6 +571,38 @@ export function FileExplorer({
     setContextMenu(null)
   }
 
+  const handleClearEffect = async () => {
+    if (!contextMenu) return
+    const target = contextMenu.targetPath
+    if (!target.endsWith(".adofai")) {
+      setContextMenu(null)
+      return
+    }
+    try {
+      const presetName = await showSelect("选择预设 / Select Preset", Object.keys(presets))
+      if (!presetName) {
+        setContextMenu(null)
+        return
+      }
+      const content = await window.electronAPI.readFile(target)
+      const parser = new StringParser()
+      const level = new Level(content, parser)
+      await new Promise<void>((resolve) => {
+        level.on("load", () => resolve())
+        level.load()
+      })
+      const preset = presets[presetName]
+      ;(level as any).clearEvent(preset)
+      const output = (level as any).export()
+      if (onTransformFile) {
+        onTransformFile(target, output)
+      }
+    } catch (error) {
+      console.error("Failed to clear effect:", error)
+    }
+    setContextMenu(null)
+  }
+
   const getFileIcon = (fileName: string) => {
     if (fileName.endsWith(".adofai")) {
       return <FileCode size={16} className="text-[#6aafff]" />
@@ -824,6 +962,17 @@ export function FileExplorer({
             {t.delete}
           </button>
           <div className="border-t border-[#454545] my-1" />
+          {contextMenu.targetPath.endsWith(".adofai") && (
+            <>
+              <button
+                onClick={handleClearEffect}
+                className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
+              >
+                Clear Effect
+              </button>
+              <div className="border-t border-[#454545] my-1" />
+            </>
+          )}
           <button
             onClick={handleCopyPath}
             className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
@@ -892,6 +1041,34 @@ export function FileExplorer({
                 }}
               >
                 OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {selectDialog.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-[#2b2b2b] border border-[#3c3c3c] rounded-lg shadow-2xl w-[420px] overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#3c3c3c] bg-[#323232]">
+              <h3 className="text-sm font-medium text-white">{selectDialog.title}</h3>
+            </div>
+            <div className="p-3 max-h-[300px] overflow-y-auto">
+              {selectDialog.options.map((opt) => (
+                <button
+                  key={opt}
+                  className="w-full text-left px-3 py-2 rounded text-sm text-zinc-300 hover:bg-[#454545] hover:text-white"
+                  onClick={() => selectDialog.callback(opt)}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+            <div className="px-4 py-3 bg-[#323232] flex justify-end">
+              <button
+                className="px-4 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-[#454545] rounded transition-colors"
+                onClick={() => selectDialog.callback(null)}
+              >
+                Cancel
               </button>
             </div>
           </div>

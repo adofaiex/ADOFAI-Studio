@@ -111,6 +111,30 @@ function App() {
     }
   }
 
+  const handleTransformFile = (path: string, newContent: string) => {
+    setTabs((prev) => {
+      const idx = prev.findIndex((t) => t.path === path)
+      if (idx >= 0) {
+        const updated = [...prev]
+        updated[idx] = { ...updated[idx], content: newContent, modified: true }
+        return updated
+      } else {
+        const fileName = path.split(/[\\/]/).pop() || "untitled"
+        const languageType = getLanguageFromPath(path)
+        const newTab: EditorTab = {
+          id: `tab-${Date.now()}-${Math.random()}`,
+          path,
+          name: fileName,
+          content: newContent,
+          modified: true,
+          language: languageType,
+        }
+        setActiveTabId(newTab.id)
+        return [...prev, newTab]
+      }
+    })
+  }
+
   const handleCursorPositionChange = useCallback((line: number, column: number) => {
     setCursorPosition({ line, column })
   }, [])
@@ -181,6 +205,7 @@ function App() {
               onRootPathChange={setRootPath}
               isCollapsed={isExplorerCollapsed}
               onToggleCollapse={setIsExplorerCollapsed}
+              onTransformFile={handleTransformFile}
             />
           </div>
 
