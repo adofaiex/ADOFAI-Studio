@@ -1,5 +1,7 @@
 {
   "name": "adofai-studio",
+  "productName": "ADOFAI Studio",
+  "description": "A professional editor for ADOFAI levels.",
   "private": true,
   "version": "0.0.0",
   "type": "module",

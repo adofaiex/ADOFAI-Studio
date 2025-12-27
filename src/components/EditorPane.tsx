@@ -10,6 +10,8 @@ import exportAsADOFAI from "../lib/format"
 import StringParser from "../lib/StringParser"
 import { useTranslation } from "../lib/i18n"
 
+import { Level } from "adofai"
+
 interface EditorPaneProps {
   tab: EditorTab | null
   onContentChange: (tabId: string, content: string, modified: boolean) => void
@@ -234,6 +236,108 @@ export function EditorPane({
     }
   }
 
+  const handleClearEffect = async () => {
+    if (!tab || !editorRef.current || !tab.path.endsWith(".adofai")) return
+
+    try {
+      const currentContent = editorRef.current.getValue()
+      const parser = new StringParser()
+
+      // Preset options
+      const presetOptions = [
+        "preset_noeffect",
+        "preset_noholds",
+        "preset_nomovecamera",
+        "preset_noeffect_completely",
+        "preset_inner_no_deco",
+      ]
+
+      // Simple select prompt (since we don't have the showSelect dialog in EditorPane yet)
+      const presetName = window.prompt("Select Preset:\n" + presetOptions.join("\n"), presetOptions[0])
+      if (!presetName || !presetOptions.includes(presetName)) return
+
+      const level = new Level(currentContent, parser)
+      await new Promise<void>((resolve) => {
+        level.on("load", () => resolve())
+        level.load()
+      })
+
+      const presets: Record<string, any> = {
+        preset_noeffect: {
+          type: "exclude",
+          events: [
+            "Flash",
+            "SetFilter",
+            "SetFilterAdvanced",
+            "HallOfMirrors",
+            "Bloom",
+            "ScalePlanets",
+            "ScreenTile",
+            "ScreenScroll",
+            "ShakeScreen",
+          ],
+        },
+        preset_noholds: { type: "exclude", events: ["Hold"] },
+        preset_nomovecamera: { type: "exclude", events: ["MoveCamera"] },
+        preset_noeffect_completely: {
+          type: "exclude",
+          events: [
+            "AddDecoration",
+            "AddText",
+            "AddObject",
+            "Checkpoint",
+            "SetHitsound",
+            "PlaySound",
+            "SetPlanetRotation",
+            "ScalePlanets",
+            "ColorTrack",
+            "AnimateTrack",
+            "RecolorTrack",
+            "MoveTrack",
+            "PositionTrack",
+            "MoveDecorations",
+            "SetText",
+            "SetObject",
+            "SetDefaultText",
+            "CustomBackground",
+            "Flash",
+            "MoveCamera",
+            "SetFilter",
+            "HallOfMirrors",
+            "ShakeScreen",
+            "Bloom",
+            "ScreenTile",
+            "ScreenScroll",
+            "SetFrameRate",
+            "RepeatEvents",
+            "SetConditionalEvents",
+            "EditorComment",
+            "Bookmark",
+            "Hold",
+            "SetHoldSound",
+            "Hide",
+            "ScaleMargin",
+            "ScaleRadius",
+          ],
+        },
+        preset_inner_no_deco: {
+          type: "special",
+          events: ["MoveDecorations", "SetText", "SetObject", "SetDefaultText"],
+        },
+      }
+
+      const preset = presets[presetName]
+      ;(level as any).clearEvent(preset)
+      const output = (level as any).export()
+
+      editorRef.current.setValue(output)
+      handleSave() // Auto save after transformation
+    } catch (error) {
+      console.error("Failed to clear effects:", error)
+      alert("Failed to clear effects")
+    }
+  }
+
   const handleEditorMount = (editor: any, monaco: any) => {
     editorRef.current = editor
     monacoRef.current = monaco
@@ -263,6 +367,14 @@ export function EditorPane({
         contextMenuGroupId: "modification",
         contextMenuOrder: 1.5,
         run: handleFormatAsADOFAI,
+      })
+
+      editor.addAction({
+        id: "clear-effect",
+        label: "Clear Effect",
+        contextMenuGroupId: "modification",
+        contextMenuOrder: 1.6,
+        run: handleClearEffect,
       })
 
       registerADOFAIHints(monaco)

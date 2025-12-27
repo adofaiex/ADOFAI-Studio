@@ -44,8 +44,9 @@ export function TitleBar({ title = "ADOFAI Studio", children }: TitleBarProps) {
   if (!isElectron) return null
 
   return (
-    <div className="h-8 bg-[#2b2b2b] flex items-center justify-between pl-3 pr-0 select-none border-b border-[#323232] drag-region">
+    <div className="h-8 bg-[#2b2b2b] flex items-center justify-between pl-2 pr-0 select-none border-b border-[#323232] drag-region">
       <div className="flex items-center gap-2 no-drag">
+        <img src="/icon.png" alt="App Icon" className="w-4 h-4" />
         {children ? <>{children}</> : <div className="text-xs text-zinc-400 font-medium">{title}</div>}
       </div>
       <div className="flex items-center gap-1 no-drag">

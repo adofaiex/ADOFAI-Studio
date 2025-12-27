@@ -579,7 +579,7 @@ export function FileExplorer({
       return
     }
     try {
-      const presetName = await showSelect("选择预设 / Select Preset", Object.keys(presets))
+      const presetName = await showSelect(t.selectPreset, Object.keys(presets))
       if (!presetName) {
         setContextMenu(null)
         return
@@ -597,8 +597,11 @@ export function FileExplorer({
       if (onTransformFile) {
         onTransformFile(target, output)
       }
+      await window.electronAPI.writeFile(target, output)
+      alert(t.clearEffect + " " + t.createSuccess)
     } catch (error) {
-      console.error("Failed to clear effect:", error)
+      console.error("Failed to clear effects:", error)
+      alert(t.clearEffect + " " + t.createFailed)
     }
     setContextMenu(null)
   }
@@ -956,7 +959,14 @@ export function FileExplorer({
             {t.rename}
           </button>
           <button
-            onClick={handleDelete}
+                onClick={handleClearEffect}
+                className="w-full text-left px-3 py-1.5 text-xs text-zinc-300 hover:bg-[#3c3c3c] flex items-center gap-2"
+              >
+                <span>{t.clearEffect}</span>
+              </button>
+              <div className="h-[1px] bg-[#323232] my-1"></div>
+              <button
+                onClick={handleDelete}
             className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
           >
             {t.delete}

@@ -62,6 +62,8 @@ export const translations = {
     changeAllOccurrences: "Change All Occurrences",
     formatDocument: "Format Document",
     commandPalette: "Command Palette",
+    clearEffect: "Clear Effect",
+    selectPreset: "Select Preset",
   },
   zh: {
     file: "文件",
@@ -124,6 +126,8 @@ export const translations = {
     changeAllOccurrences: "更改所有匹配项",
     formatDocument: "格式化文档",
     commandPalette: "命令面板",
+    clearEffect: "清除特效",
+    selectPreset: "选择预设",
   },
   ko: {
     file: "파일",
@@ -186,6 +190,8 @@ export const translations = {
     changeAllOccurrences: "모든 항목 변경",
     formatDocument: "문서 서식 지정",
     commandPalette: "명령 팔레트",
+    clearEffect: "이펙트 제거",
+    selectPreset: "프리셋 선택",
   },
 }
 
