@@ -63,6 +63,7 @@ export const translations = {
     formatDocument: "Format Document",
     commandPalette: "Command Palette",
     clearEffect: "Clear Effect",
+    clearDeco: "Clear Decorations",
     selectPreset: "Select Preset",
   },
   zh: {
@@ -127,6 +128,7 @@ export const translations = {
     formatDocument: "格式化文档",
     commandPalette: "命令面板",
     clearEffect: "清除特效",
+    clearDeco: "清除装饰",
     selectPreset: "选择预设",
   },
   ko: {
@@ -191,6 +193,7 @@ export const translations = {
     formatDocument: "문서 서식 지정",
     commandPalette: "명령 팔레트",
     clearEffect: "이펙트 제거",
+    clearDeco: "장식 제거",
     selectPreset: "프리셋 선택",
   },
 }

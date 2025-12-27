@@ -69,7 +69,7 @@ const preset_noeffect: Preset = {
   ],
 }
 
-const preset_noholds: Preset = { type: "exclude", events: ["Hold"] }
+const preset_noholds_experimental: Preset = { type: "exclude", events: ["Hold"] }
 const preset_nomovecamera: Preset = { type: "exclude", events: ["MoveCamera"] }
 
 const preset_noeffect_completely: Preset = {
@@ -121,10 +121,9 @@ const preset_inner_no_deco: Preset = {
 
 const presets: Record<string, Preset> = {
   preset_noeffect,
-  preset_noholds,
+  "preset_noholds(Experimental)": preset_noholds_experimental,
   preset_nomovecamera,
   preset_noeffect_completely,
-  preset_inner_no_deco,
 }
 
 export function FileExplorer({
@@ -606,6 +605,35 @@ export function FileExplorer({
     setContextMenu(null)
   }
 
+  const handleClearDeco = async () => {
+    if (!contextMenu) return
+    const target = contextMenu.targetPath
+    if (!target.endsWith(".adofai")) {
+      setContextMenu(null)
+      return
+    }
+    try {
+      const content = await window.electronAPI.readFile(target)
+      const parser = new StringParser()
+      const level = new Level(content, parser)
+      await new Promise<void>((resolve) => {
+        level.on("load", () => resolve())
+        level.load()
+      })
+      ;(level as any).clearDeco()
+      const output = (level as any).export()
+      if (onTransformFile) {
+        onTransformFile(target, output)
+      }
+      await window.electronAPI.writeFile(target, output)
+      alert(t.clearDeco + " " + t.createSuccess)
+    } catch (error) {
+      console.error("Failed to clear decorations:", error)
+      alert(t.clearDeco + " " + t.createFailed)
+    }
+    setContextMenu(null)
+  }
+
   const getFileIcon = (fileName: string) => {
     if (fileName.endsWith(".adofai")) {
       return <FileCode size={16} className="text-[#6aafff]" />
@@ -936,7 +964,7 @@ export function FileExplorer({
       {contextMenu && (
         <div
           ref={contextMenuRef}
-          className="fixed bg-[#3c3c3c] border border-[#454545] rounded shadow-lg py-1 z-[9999] min-w-[200px] max-h-[400px] overflow-y-auto"
+          className="fixed bg-[#3c3c3c] border border-[#454545] rounded shadow-lg py-1 z-[1000] min-w-[200px] max-h-[400px] overflow-y-auto"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <button
@@ -958,31 +986,28 @@ export function FileExplorer({
           >
             {t.rename}
           </button>
-          <button
-                onClick={handleClearEffect}
-                className="w-full text-left px-3 py-1.5 text-xs text-zinc-300 hover:bg-[#3c3c3c] flex items-center gap-2"
-              >
-                <span>{t.clearEffect}</span>
-              </button>
-              <div className="h-[1px] bg-[#323232] my-1"></div>
-              <button
-                onClick={handleDelete}
-            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
-          >
-            {t.delete}
-          </button>
-          <div className="border-t border-[#454545] my-1" />
           {contextMenu.targetPath.endsWith(".adofai") && (
             <>
               <button
                 onClick={handleClearEffect}
                 className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
               >
-                Clear Effect
+                {t.clearEffect}
               </button>
-              <div className="border-t border-[#454545] my-1" />
+              <button
+                onClick={handleClearDeco}
+                className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
+              >
+                {t.clearDeco}
+              </button>
             </>
           )}
+          <button
+            onClick={handleDelete}
+            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
+          >
+            {t.delete}
+          </button>
           <button
             onClick={handleCopyPath}
             className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
@@ -1016,7 +1041,7 @@ export function FileExplorer({
 
       {/* Prompt Dialog */}
       {promptDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-[#2b2b2b] border border-[#3c3c3c] rounded-lg shadow-2xl w-[400px] overflow-hidden">
             <div className="px-4 py-3 border-b border-[#3c3c3c] bg-[#323232]">
               <h3 className="text-sm font-medium text-white">{promptDialog.title}</h3>
@@ -1057,7 +1082,7 @@ export function FileExplorer({
         </div>
       )}
       {selectDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-[#2b2b2b] border border-[#3c3c3c] rounded-lg shadow-2xl w-[420px] overflow-hidden">
             <div className="px-4 py-3 border-b border-[#3c3c3c] bg-[#323232]">
               <h3 className="text-sm font-medium text-white">{selectDialog.title}</h3>

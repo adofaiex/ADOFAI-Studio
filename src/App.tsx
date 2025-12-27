@@ -19,6 +19,7 @@ function App() {
   const [rootPath, setRootPath] = useState<string | null>(null)
   const [explorerWidth, setExplorerWidth] = useState(260)
   const [isExplorerCollapsed, setIsExplorerCollapsed] = useState(false)
+  const [unsavedChanges, setUnsavedChanges] = useState<Record<string, string>>({}) // path -> content
 
   useEffect(() => {
     setIsElectron(typeof window !== "undefined" && window.electronAPI !== undefined)
@@ -38,12 +39,16 @@ function App() {
       const fileName = filePath.split(/[\\/]/).pop() || "untitled"
       const languageType = getLanguageFromPath(filePath)
 
+      const unsavedContent = unsavedChanges[filePath]
+      const finalContent = unsavedContent !== undefined ? unsavedContent : content
+      const isModified = unsavedContent !== undefined && unsavedContent !== content
+
       const newTab: EditorTab = {
         id: `tab-${Date.now()}-${Math.random()}`,
         path: filePath,
         name: fileName,
-        content,
-        modified: false,
+        content: finalContent,
+        modified: isModified,
         language: languageType,
       }
 
@@ -92,11 +97,41 @@ function App() {
   }
 
   const handleContentChange = useCallback((tabId: string, content: string, modified: boolean) => {
-    setTabs((prev) => prev.map((tab) => (tab.id === tabId ? { ...tab, content, modified } : tab)))
+    setTabs((prev) => {
+      const updatedTabs = prev.map((tab) => {
+        if (tab.id === tabId) {
+          if (modified) {
+            setUnsavedChanges((prevChanges) => ({ ...prevChanges, [tab.path]: content }))
+          } else {
+            setUnsavedChanges((prevChanges) => {
+              const newChanges = { ...prevChanges }
+              delete newChanges[tab.path]
+              return newChanges
+            })
+          }
+          return { ...tab, content, modified }
+        }
+        return tab
+      })
+      return updatedTabs
+    })
   }, [])
 
   const handleSave = useCallback((tabId: string, content: string) => {
-    setTabs((prev) => prev.map((tab) => (tab.id === tabId ? { ...tab, content, modified: false } : tab)))
+    setTabs((prev) => {
+      const updatedTabs = prev.map((tab) => {
+        if (tab.id === tabId) {
+          setUnsavedChanges((prevChanges) => {
+            const newChanges = { ...prevChanges }
+            delete newChanges[tab.path]
+            return newChanges
+          })
+          return { ...tab, content, modified: false }
+        }
+        return tab
+      })
+      return updatedTabs
+    })
   }, [])
 
   const handleSaveAll = async () => {
@@ -112,6 +147,7 @@ function App() {
   }
 
   const handleTransformFile = (path: string, newContent: string) => {
+    setUnsavedChanges((prev) => ({ ...prev, [path]: newContent }))
     setTabs((prev) => {
       const idx = prev.findIndex((t) => t.path === path)
       if (idx >= 0) {

@@ -230,7 +230,21 @@ export function EditorPane({
       const parsed = parser.parse(currentContent)
       const formatted = exportAsADOFAI(parsed, 0, true)
 
-      editorRef.current.setValue(formatted)
+      const model = editorRef.current.getModel()
+      if (model) {
+        model.pushStackElement()
+        model.pushEditOperations(
+          [],
+          [
+            {
+              range: model.getFullModelRange(),
+              text: formatted,
+            },
+          ],
+          () => null
+        )
+        model.pushStackElement()
+      }
     } catch (error) {
       console.error("Failed to format as ADOFAI:", error)
     }
@@ -246,13 +260,12 @@ export function EditorPane({
       // Preset options
       const presetOptions = [
         "preset_noeffect",
-        "preset_noholds",
+        "preset_noholds(Experimental)",
         "preset_nomovecamera",
         "preset_noeffect_completely",
-        "preset_inner_no_deco",
       ]
 
-      // Simple select prompt (since we don't have the showSelect dialog in EditorPane yet)
+      // Simple select prompt
       const presetName = window.prompt("Select Preset:\n" + presetOptions.join("\n"), presetOptions[0])
       if (!presetName || !presetOptions.includes(presetName)) return
 
@@ -277,7 +290,7 @@ export function EditorPane({
             "ShakeScreen",
           ],
         },
-        preset_noholds: { type: "exclude", events: ["Hold"] },
+        "preset_noholds(Experimental)": { type: "exclude", events: ["Hold"] },
         preset_nomovecamera: { type: "exclude", events: ["MoveCamera"] },
         preset_noeffect_completely: {
           type: "exclude",
@@ -320,21 +333,68 @@ export function EditorPane({
             "ScaleRadius",
           ],
         },
-        preset_inner_no_deco: {
-          type: "special",
-          events: ["MoveDecorations", "SetText", "SetObject", "SetDefaultText"],
-        },
       }
 
       const preset = presets[presetName]
       ;(level as any).clearEvent(preset)
       const output = (level as any).export()
 
-      editorRef.current.setValue(output)
-      handleSave() // Auto save after transformation
+      const model = editorRef.current.getModel()
+      if (model) {
+        model.pushStackElement()
+        model.pushEditOperations(
+          [],
+          [
+            {
+              range: model.getFullModelRange(),
+              text: output,
+            },
+          ],
+          () => null
+        )
+        model.pushStackElement()
+      }
+      handleEditorChange(output) // Mark as modified and allow undo
     } catch (error) {
       console.error("Failed to clear effects:", error)
-      alert("Failed to clear effects")
+      alert("Failed to clear effects: " + error)
+    }
+  }
+
+  const handleClearDeco = async () => {
+    if (!tab || !editorRef.current || !tab.path.endsWith(".adofai")) return
+
+    try {
+      const currentContent = editorRef.current.getValue()
+      const parser = new StringParser()
+      const level = new Level(currentContent, parser)
+      await new Promise<void>((resolve) => {
+        level.on("load", () => resolve())
+        level.load()
+      })
+
+      ;(level as any).clearDeco()
+      const output = (level as any).export()
+
+      const model = editorRef.current.getModel()
+      if (model) {
+        model.pushStackElement()
+        model.pushEditOperations(
+          [],
+          [
+            {
+              range: model.getFullModelRange(),
+              text: output,
+            },
+          ],
+          () => null
+        )
+        model.pushStackElement()
+      }
+      handleEditorChange(output) // Mark as modified and allow undo
+    } catch (error) {
+      console.error("Failed to clear decorations:", error)
+      alert("Failed to clear decorations: " + error)
     }
   }
 
@@ -375,6 +435,14 @@ export function EditorPane({
         contextMenuGroupId: "modification",
         contextMenuOrder: 1.6,
         run: handleClearEffect,
+      })
+
+      editor.addAction({
+        id: "clear-deco",
+        label: "Clear Decorations",
+        contextMenuGroupId: "modification",
+        contextMenuOrder: 1.7,
+        run: handleClearDeco,
       })
 
       registerADOFAIHints(monaco)
