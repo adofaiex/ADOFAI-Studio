@@ -668,6 +668,7 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
         content={tab.content}
         onChange={(newContent) => onContentChange(tab.id, newContent, true)}
         theme={theme}
+        language={language}
       />
     )
   }

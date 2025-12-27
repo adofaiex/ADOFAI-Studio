@@ -66,6 +66,18 @@ function createWindow() {
   })
 }
 
+ipcMain.handle("app:getPath", (_event, name: any) => {
+  return app.getPath(name)
+})
+
+ipcMain.handle("app:getAppPath", () => {
+  return app.getAppPath()
+})
+
+ipcMain.handle("fs:exists", async (_event, filePath: string) => {
+  return fs.existsSync(filePath)
+})
+
 ipcMain.handle("dialog:openFolder", async () => {
   const result = await dialog.showOpenDialog(win!, {
     properties: ["openDirectory"],

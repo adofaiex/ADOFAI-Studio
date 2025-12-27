@@ -8,6 +8,7 @@ import { TabBar } from "./components/TabBar"
 import { StatusBar } from "./components/StatusBar"
 import { TitleBar } from "./components/TitleBar"
 import type { EditorTab } from "./types/file-system"
+import { useTranslation, loadExternalTranslations, translations } from "./lib/i18n"
 import type { Language } from "./lib/i18n"
 import type { ThemeType } from "./types/theme"
 import { themes } from "./types/theme"
@@ -16,18 +17,81 @@ function App() {
   const editorPaneRef = useRef<any>(null)
   const [tabs, setTabs] = useState<EditorTab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
-  const [language, setLanguage] = useState<Language>("en")
-  const [theme, setTheme] = useState<ThemeType>("dark")
+  
+  // Initialize from localStorage
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("adofai-studio-language") || "en"
+    }
+    return "en"
+  })
+  
+  const [theme, setTheme] = useState<ThemeType>(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("adofai-studio-theme") as ThemeType) || "dark"
+    }
+    return "dark"
+  })
+
   const [isElectron, setIsElectron] = useState(false)
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
   const [rootPath, setRootPath] = useState<string | null>(null)
   const [explorerWidth, setExplorerWidth] = useState(260)
   const [isExplorerCollapsed, setIsExplorerCollapsed] = useState(false)
   const [unsavedChanges, setUnsavedChanges] = useState<Record<string, string>>({}) // path -> content
+  const [externalLangsLoaded, setExternalLangsLoaded] = useState(false)
 
+  // Load external translations and persistent config
   useEffect(() => {
-    setIsElectron(typeof window !== "undefined" && window.electronAPI !== undefined)
+    const initApp = async () => {
+      setIsElectron(typeof window !== "undefined" && window.electronAPI !== undefined)
+      
+      if (window.electronAPI) {
+        // Load external translations
+        await loadExternalTranslations()
+        setExternalLangsLoaded(true)
+
+        // Load config file
+        try {
+          const userDataPath = await window.electronAPI.getPath("userData")
+          const configPath = `${userDataPath}/config.json`.replace(/\\/g, "/")
+          const exists = await window.electronAPI.exists(configPath)
+          
+          if (exists) {
+            const configContent = await window.electronAPI.readFile(configPath)
+            const config = JSON.parse(configContent)
+            if (config.language) setLanguage(config.language)
+            if (config.theme) setTheme(config.theme)
+          }
+        } catch (e) {
+          console.error("Failed to load config file", e)
+        }
+      }
+    }
+    
+    initApp()
   }, [])
+
+  // Persist settings to localStorage and config file
+  useEffect(() => {
+    localStorage.setItem("adofai-studio-language", language)
+    localStorage.setItem("adofai-studio-theme", theme)
+
+    const saveConfig = async () => {
+      if (window.electronAPI) {
+        try {
+          const userDataPath = await window.electronAPI.getPath("userData")
+          const configPath = `${userDataPath}/config.json`.replace(/\\/g, "/")
+          const config = { language, theme }
+          await window.electronAPI.writeFile(configPath, JSON.stringify(config, null, 2))
+        } catch (e) {
+          console.error("Failed to save config file", e)
+        }
+      }
+    }
+    
+    saveConfig()
+  }, [language, theme])
 
   useEffect(() => {
     const currentTheme = themes[theme]
@@ -278,8 +342,9 @@ function App() {
           language={language}
           onLanguageChange={setLanguage}
           theme={theme}
-          onThemeChange={setTheme}
-          onOpenFolder={handleOpenFolder}
+        onThemeChange={setTheme}
+        externalLangsLoaded={externalLangsLoaded}
+        onOpenFolder={handleOpenFolder}
           onOpenFile={handleOpenFile}
           onSave={() => activeTab && handleSave(activeTab.id, activeTab.content)}
           onSaveAll={handleSaveAll}
@@ -325,6 +390,7 @@ function App() {
             onTabMoveToEnd={handleTabMoveToEnd}
             onTabCloseOthers={handleTabCloseOthers}
             onTabToggleViewMode={handleTabToggleViewMode}
+            language={language}
           />
 
           <div className="flex-1 min-h-0">

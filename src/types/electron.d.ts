@@ -16,6 +16,9 @@ export interface ElectronAPI {
   deleteItem: (itemPath: string) => Promise<boolean>
   renameItem: (oldPath: string, newPath: string) => Promise<boolean>
   revealInExplorer: (itemPath: string) => Promise<boolean>
+  exists: (filePath: string) => Promise<boolean>
+  getPath: (name: string) => Promise<string>
+  getAppPath: () => Promise<string>
   windowMinimize: () => Promise<void>
   windowMaximize: () => Promise<void>
   windowClose: () => Promise<void>

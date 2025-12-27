@@ -739,13 +739,13 @@ export function FileExplorer({
         )}
 
         <div className="mb-2">
-          <div
-            className="px-2 py-1 text-xs font-semibold text-[var(--foreground)] opacity-50 uppercase flex items-center gap-1 cursor-pointer hover:opacity-100 transition-colors"
-            onClick={() => toggleCategory("levels")}
-          >
-            {collapsedCategories.has("levels") ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-            {t.levels} ({levels.length})
-          </div>
+            <div
+              className="px-2 py-1 text-xs font-semibold text-[var(--foreground)] opacity-50 flex items-center gap-1 cursor-pointer hover:opacity-100 transition-colors"
+              onClick={() => toggleCategory("levels")}
+            >
+              {collapsedCategories.has("levels") ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+              {t.levels} ({levels.length})
+            </div>
           {!collapsedCategories.has("levels") &&
             levels.map((level) => {
               const isSelected = selectedFile === level.path
@@ -771,7 +771,7 @@ export function FileExplorer({
         {decorations.length > 0 && (
           <div className="mb-2">
             <div
-              className="px-2 py-1 text-xs font-semibold text-[var(--foreground)] opacity-50 uppercase flex items-center gap-1 cursor-pointer hover:opacity-100 transition-colors"
+              className="px-2 py-1 text-xs font-semibold text-[var(--foreground)] opacity-50 flex items-center gap-1 cursor-pointer hover:opacity-100 transition-colors"
               onClick={() => toggleCategory("decorations")}
             >
               {collapsedCategories.has("decorations") ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
@@ -804,7 +804,7 @@ export function FileExplorer({
         {audio.length > 0 && (
           <div className="mb-2">
             <div
-              className="px-2 py-1 text-xs font-semibold text-[var(--foreground)] opacity-50 uppercase flex items-center gap-1 cursor-pointer hover:opacity-100 transition-colors"
+              className="px-2 py-1 text-xs font-semibold text-[var(--foreground)] opacity-50 flex items-center gap-1 cursor-pointer hover:opacity-100 transition-colors"
               onClick={() => toggleCategory("audio")}
             >
               {collapsedCategories.has("audio") ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
@@ -837,7 +837,7 @@ export function FileExplorer({
         {miscellaneous.length > 0 && (
           <div>
             <div
-              className="px-2 py-1 text-xs font-semibold text-[var(--foreground)] opacity-50 uppercase flex items-center gap-1 cursor-pointer hover:opacity-100 transition-colors"
+              className="px-2 py-1 text-xs font-semibold text-[var(--foreground)] opacity-50 flex items-center gap-1 cursor-pointer hover:opacity-100 transition-colors"
               onClick={() => toggleCategory("miscellaneous")}
             >
               {collapsedCategories.has("miscellaneous") ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
@@ -887,7 +887,7 @@ export function FileExplorer({
   return (
     <div className="w-full h-full bg-[var(--sidebar)] border-r border-[var(--border)] flex flex-col select-none">
       <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between shrink-0">
-        <h2 className="text-xs font-medium text-[var(--foreground)] opacity-50 uppercase tracking-wide truncate">{t.solutionExplorer}</h2>
+        <h2 className="text-xs font-medium text-[var(--foreground)] opacity-50 tracking-wide truncate">{t.solutionExplorer}</h2>
         <button
           onClick={() => setIsCollapsed(true)}
           className="p-1 hover:bg-[var(--hover)] rounded transition-colors shrink-0"

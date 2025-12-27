@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { type Language, useTranslation } from "../lib/i18n"
+import { type Language, useTranslation, translations } from "../lib/i18n"
 import type { ThemeType } from "../types/theme"
 
 interface MenuBarProps {
@@ -24,6 +24,7 @@ interface MenuBarProps {
   onReplace?: () => void
   onSelectAll?: () => void
   embedded?: boolean
+  externalLangsLoaded?: boolean
 }
 
 interface MenuItem {
@@ -115,11 +116,10 @@ export function MenuBar({
       items: [
         {
           label: t.language,
-          submenu: [
-            { label: t.english, action: () => onLanguageChange("en") },
-            { label: t.chinese, action: () => onLanguageChange("zh") },
-            { label: t.korean, action: () => onLanguageChange("ko") },
-          ],
+          submenu: Object.keys(translations).map((langCode) => ({
+            label: translations[langCode].languageName || langCode,
+            action: () => onLanguageChange(langCode),
+          })),
         },
         {
           label: t.theme,

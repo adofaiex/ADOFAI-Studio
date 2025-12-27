@@ -4,7 +4,7 @@ import type React from "react"
 
 import { X, FileCode, Image, Music, FileText, MoreVertical } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
-import { useTranslation } from "../lib/i18n"
+import { useTranslation, type Language } from "../lib/i18n"
 
 interface TabBarProps {
   tabs: EditorTab[]
@@ -16,6 +16,7 @@ interface TabBarProps {
   onTabMoveToEnd: (index: number) => void
   onTabCloseOthers: (tabId: string) => void
   onTabToggleViewMode: (tabId: string) => void
+  language?: Language
 }
 
 export function TabBar({
@@ -28,8 +29,9 @@ export function TabBar({
   onTabMoveToEnd,
   onTabCloseOthers,
   onTabToggleViewMode,
+  language = "en",
 }: TabBarProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation(language)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tabId: string; index: number } | null>(null)
@@ -155,8 +157,8 @@ export function TabBar({
               >
                 <span>
                   {tabs.find((t) => t.id === contextMenu.tabId)?.editorViewMode === "design"
-                    ? t.openSourceViewInNewTab
-                    : t.openDesignViewInNewTab}
+                    ? t("openSourceViewInNewTab")
+                    : t("openDesignViewInNewTab")}
                 </span>
               </button>
               <div className="h-px bg-[var(--border)] my-1" />
@@ -169,7 +171,7 @@ export function TabBar({
             }}
             className="w-full px-4 py-1.5 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
           >
-            {t.moveToStart}
+            {t("moveToStart")}
           </button>
           <button
             onClick={() => {
@@ -178,7 +180,7 @@ export function TabBar({
             }}
             className="w-full px-4 py-1.5 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
           >
-            {t.moveToEnd}
+            {t("moveToEnd")}
           </button>
           <div className="h-px bg-[var(--border)] my-1" />
           <button
@@ -188,7 +190,7 @@ export function TabBar({
             }}
             className="w-full px-4 py-1.5 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
           >
-            {t.close}
+            {t("close")}
           </button>
           <button
             onClick={() => {
@@ -197,7 +199,7 @@ export function TabBar({
             }}
             className="w-full px-4 py-1.5 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
           >
-            {t.closeOthers}
+            {t("closeOthers")}
           </button>
           <button
             onClick={() => {
