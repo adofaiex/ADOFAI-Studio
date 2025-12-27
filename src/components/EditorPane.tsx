@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react"
 import Editor from "@monaco-editor/react"
 import { FileText, Music, Play, Pause, Volume2, SkipBack, SkipForward } from "lucide-react"
 import type { EditorTab } from "../types/file-system"
@@ -9,8 +9,10 @@ import adofaiSchema from "../lib/adofai-schema.json"
 import exportAsADOFAI from "../lib/format"
 import StringParser from "../lib/StringParser"
 import { useTranslation } from "../lib/i18n"
+import type { ThemeType } from "../types/theme"
 
 import { Level } from "adofai"
+import { DesignView } from "./DesignView"
 
 interface EditorPaneProps {
   tab: EditorTab | null
@@ -19,16 +21,21 @@ interface EditorPaneProps {
   onSaveAll?: () => void
   onCursorPositionChange?: (line: number, column: number) => void
   language?: Language
+  theme?: ThemeType
 }
 
-export function EditorPane({
-  tab,
-  onContentChange,
-  onSave,
-  onSaveAll,
-  onCursorPositionChange,
-  language = "en",
-}: EditorPaneProps) {
+export const EditorPane = forwardRef<any, EditorPaneProps>((
+  {
+    tab,
+    onContentChange,
+    onSave,
+    onSaveAll,
+    onCursorPositionChange,
+    language = "en",
+    theme = "dark",
+  },
+  ref
+) => {
   const t = useTranslation(language)
   const [isSaving, setIsSaving] = useState(false)
   const [isImage, setIsImage] = useState(false)
@@ -47,6 +54,36 @@ export function EditorPane({
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null)
   const editorRef = useRef<any>(null)
   const monacoRef = useRef<any>(null)
+
+  useImperativeHandle(ref, () => ({
+    undo: () => {
+      editorRef.current?.trigger("keyboard", "undo", null)
+    },
+    redo: () => {
+      editorRef.current?.trigger("keyboard", "redo", null)
+    },
+    cut: () => {
+      editorRef.current?.focus()
+      document.execCommand("cut")
+    },
+    copy: () => {
+      editorRef.current?.focus()
+      document.execCommand("copy")
+    },
+    paste: () => {
+      editorRef.current?.focus()
+      document.execCommand("paste")
+    },
+    find: () => {
+      editorRef.current?.trigger("keyboard", "actions.find", null)
+    },
+    replace: () => {
+      editorRef.current?.trigger("keyboard", "editor.action.startFindReplaceAction", null)
+    },
+    selectAll: () => {
+      editorRef.current?.trigger("keyboard", "editor.action.selectAll", null)
+    }
+  }))
   const initialContentRef = useRef<string>("")
   const registeredProvidersRef = useRef<any[]>([])
 
@@ -518,10 +555,10 @@ export function EditorPane({
 
   if (!tab) {
     return (
-      <div className="h-full bg-[#1e1e1e] flex items-center justify-center">
-        <div className="text-center text-zinc-500">
+      <div className="h-full bg-[var(--editor-background)] flex items-center justify-center">
+        <div className="text-center text-[var(--foreground)] opacity-60">
           <FileText size={64} className="mx-auto mb-4 opacity-50" />
-          <p className="text-lg">No file selected</p>
+          <p className="text-lg font-medium">No file selected</p>
           <p className="text-sm mt-2">Open a file from the Solution Explorer</p>
         </div>
       </div>
@@ -530,18 +567,18 @@ export function EditorPane({
 
   if (isImage) {
     return (
-      <div className="h-full flex flex-col bg-[#1e1e1e] overflow-hidden">
+      <div className="h-full flex flex-col bg-[var(--editor-background)] overflow-hidden">
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="w-full h-full flex flex-col items-center justify-center gap-4 min-h-0">
             <div className="flex-1 flex items-center justify-center min-h-0 w-full">
               <img
                 src={imageDataUrl || "/placeholder.svg"}
                 alt={tab.name}
-                className="max-w-full max-h-full object-contain rounded shadow-lg"
+                className="max-w-full max-h-full object-contain rounded shadow-lg border border-[var(--border)]"
                 style={{ imageRendering: "auto" }}
               />
             </div>
-            <div className="text-zinc-400 text-sm shrink-0">{tab.name} - Image Preview</div>
+            <div className="text-[var(--foreground)] opacity-60 text-sm shrink-0">{tab.name} - Image Preview</div>
           </div>
         </div>
       </div>
@@ -550,20 +587,20 @@ export function EditorPane({
 
   if (isAudio) {
     return (
-      <div className="h-full flex flex-col bg-[#1e1e1e] overflow-hidden">
+      <div className="h-full flex flex-col bg-[var(--editor-background)] overflow-hidden">
         <div className="flex-1 flex flex-col items-center justify-center p-8 gap-8">
-          <div className="w-full max-w-2xl bg-[#2b2b2b] rounded-2xl border border-[#3c3c3c] shadow-2xl overflow-hidden flex flex-col">
+          <div className="w-full max-w-2xl bg-[var(--menu-background)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden flex flex-col">
             {/* Visualizer Header */}
-            <div className="h-48 bg-[#1a1a1a] relative flex items-end px-1">
+            <div className="h-48 bg-[var(--background)] relative flex items-end px-1 border-b border-[var(--border)]">
               <canvas ref={canvasRef} width={800} height={180} className="w-full h-full opacity-80" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#2b2b2b] to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[var(--menu-background)] to-transparent pointer-events-none" />
               <div className="absolute top-6 left-8 flex items-center gap-4">
-                <div className="w-16 h-16 bg-[#3c7dd6] rounded-xl flex items-center justify-center shadow-lg shadow-[#3c7dd6]/20">
+                <div className="w-16 h-16 bg-[var(--accent)] rounded-xl flex items-center justify-center shadow-lg shadow-[var(--accent)]/20">
                   <Music size={32} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white mb-1 truncate max-w-md">{tab.name}</h3>
-                  <p className="text-zinc-500 text-sm font-medium tracking-wide uppercase">Audio Preview</p>
+                  <h3 className="text-xl font-bold text-[var(--foreground)] mb-1 truncate max-w-md">{tab.name}</h3>
+                  <p className="text-[var(--foreground)] opacity-50 text-sm font-medium tracking-wide uppercase">Audio Preview</p>
                 </div>
               </div>
             </div>
@@ -579,9 +616,9 @@ export function EditorPane({
                   step="0.01"
                   value={currentTime}
                   onChange={handleSeek}
-                  className="w-full h-1.5 bg-[#3c3c3c] rounded-lg appearance-none cursor-pointer accent-[#3c7dd6] hover:accent-[#4a8ce7] transition-all"
+                  className="w-full h-1.5 bg-[var(--border)] rounded-lg appearance-none cursor-pointer accent-[var(--accent)] hover:accent-[var(--accent)]/80 transition-all"
                 />
-                <div className="flex justify-between text-[11px] font-mono text-zinc-500 tabular-nums">
+                <div className="flex justify-between text-[11px] font-mono text-[var(--foreground)] opacity-50 tabular-nums">
                   <span>{formatTime(currentTime)}</span>
                   <span>{formatTime(duration)}</span>
                 </div>
@@ -590,22 +627,22 @@ export function EditorPane({
               {/* Action Buttons */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <button className="p-2 text-zinc-400 hover:text-white transition-colors">
+                  <button className="p-2 text-[var(--foreground)] opacity-60 hover:opacity-100 transition-colors">
                     <SkipBack size={20} />
                   </button>
                   <button
                     onClick={togglePlay}
-                    className="w-14 h-14 bg-[#3c7dd6] hover:bg-[#4a8ce7] text-white rounded-full flex items-center justify-center shadow-lg shadow-[#3c7dd6]/20 transition-all hover:scale-105 active:scale-95"
+                    className="w-14 h-14 bg-[var(--accent)] hover:opacity-90 text-white rounded-full flex items-center justify-center shadow-lg shadow-[var(--accent)]/20 transition-all hover:scale-105 active:scale-95"
                   >
                     {isPlaying ? <Pause size={28} fill="currentColor" /> : <Play size={28} className="ml-1" fill="currentColor" />}
                   </button>
-                  <button className="p-2 text-zinc-400 hover:text-white transition-colors">
+                  <button className="p-2 text-[var(--foreground)] opacity-60 hover:opacity-100 transition-colors">
                     <SkipForward size={20} />
                   </button>
                 </div>
 
-                <div className="flex items-center gap-3 bg-[#333333] px-4 py-2 rounded-full">
-                  <Volume2 size={18} className="text-zinc-400" />
+                <div className="flex items-center gap-3 bg-[var(--hover)] px-4 py-2 rounded-full border border-[var(--border)]">
+                  <Volume2 size={18} className="text-[var(--foreground)] opacity-60" />
                   <input
                     type="range"
                     min="0"
@@ -613,7 +650,7 @@ export function EditorPane({
                     step="0.01"
                     value={volume}
                     onChange={handleVolumeChange}
-                    className="w-24 h-1 bg-[#454545] rounded-lg appearance-none cursor-pointer accent-zinc-300"
+                    className="w-24 h-1 bg-[var(--border)] rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
                   />
                 </div>
               </div>
@@ -625,11 +662,21 @@ export function EditorPane({
     )
   }
 
+  if ((tab as any).editorViewMode === "design") {
+    return (
+      <DesignView
+        content={tab.content}
+        onChange={(newContent) => onContentChange(tab.id, newContent, true)}
+        theme={theme}
+      />
+    )
+  }
+
   return (
-    <div className="h-full flex flex-col bg-[#1e1e1e]">
+    <div className="h-full flex flex-col bg-[var(--editor-background)]">
       <div className="flex-1">
         <Editor
-          theme="vs-dark"
+          theme={theme === "light" ? "vs" : theme === "high-contrast" ? "hc-black" : "vs-dark"}
           language={tab.language}
           value={tab.content}
           onChange={handleEditorChange}
@@ -657,4 +704,4 @@ export function EditorPane({
       </div>
     </div>
   )
-}
+})

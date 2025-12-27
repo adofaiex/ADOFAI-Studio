@@ -2,14 +2,27 @@
 
 import React from "react"
 import { type Language, useTranslation } from "../lib/i18n"
+import type { ThemeType } from "../types/theme"
 
 interface MenuBarProps {
   language: Language
   onLanguageChange: (lang: Language) => void
+  theme: ThemeType
+  onThemeChange: (theme: ThemeType) => void
   onOpenFolder: () => void
   onOpenFile: () => void
   onSave: () => void
   onSaveAll: () => void
+  onClose?: () => void
+  onCloseAll?: () => void
+  onUndo?: () => void
+  onRedo?: () => void
+  onCut?: () => void
+  onCopy?: () => void
+  onPaste?: () => void
+  onFind?: () => void
+  onReplace?: () => void
+  onSelectAll?: () => void
   embedded?: boolean
 }
 
@@ -30,10 +43,22 @@ interface Menu {
 export function MenuBar({
   language,
   onLanguageChange,
+  theme,
+  onThemeChange,
   onOpenFolder,
   onOpenFile,
   onSave,
   onSaveAll,
+  onClose,
+  onCloseAll,
+  onUndo,
+  onRedo,
+  onCut,
+  onCopy,
+  onPaste,
+  onFind,
+  onReplace,
+  onSelectAll,
   embedded = false,
 }: MenuBarProps) {
   const t = useTranslation(language)
@@ -50,29 +75,29 @@ export function MenuBar({
         { label: t.save, action: onSave, shortcut: "Ctrl+S" },
         { label: t.saveAll, action: onSaveAll, shortcut: "Ctrl+K S" },
         { type: "separator" },
-        { label: t.close, shortcut: "Ctrl+W" },
-        { label: t.closeAll, shortcut: "Ctrl+K W" },
+        { label: t.close, action: onClose, shortcut: "Ctrl+W" },
+        { label: t.closeAll, action: onCloseAll, shortcut: "Ctrl+K W" },
       ],
     },
     {
       id: "edit",
       label: t.edit,
       items: [
-        { label: t.undo, shortcut: "Ctrl+Z" },
-        { label: t.redo, shortcut: "Ctrl+Y" },
+        { label: t.undo, action: onUndo, shortcut: "Ctrl+Z" },
+        { label: t.redo, action: onRedo, shortcut: "Ctrl+Y" },
         { type: "separator" },
-        { label: t.cut, shortcut: "Ctrl+X" },
-        { label: t.copy, shortcut: "Ctrl+C" },
-        { label: t.paste, shortcut: "Ctrl+V" },
+        { label: t.cut, action: onCut, shortcut: "Ctrl+X" },
+        { label: t.copy, action: onCopy, shortcut: "Ctrl+C" },
+        { label: t.paste, action: onPaste, shortcut: "Ctrl+V" },
         { type: "separator" },
-        { label: t.find, shortcut: "Ctrl+F" },
-        { label: t.replace, shortcut: "Ctrl+H" },
+        { label: t.find, action: onFind, shortcut: "Ctrl+F" },
+        { label: t.replace, action: onReplace, shortcut: "Ctrl+H" },
       ],
     },
     {
       id: "selection",
       label: t.selection,
-      items: [{ label: t.selectAll, shortcut: "Ctrl+A" }],
+      items: [{ label: t.selectAll, action: onSelectAll, shortcut: "Ctrl+A" }],
     },
     {
       id: "view",
@@ -96,6 +121,14 @@ export function MenuBar({
             { label: t.korean, action: () => onLanguageChange("ko") },
           ],
         },
+        {
+          label: t.theme,
+          submenu: [
+            { label: t.themeDark, action: () => onThemeChange("dark") },
+            { label: t.themeLight, action: () => onThemeChange("light") },
+            { label: t.themeHighContrast, action: () => onThemeChange("high-contrast") },
+          ],
+        },
       ],
     },
     {
@@ -106,75 +139,66 @@ export function MenuBar({
   ]
 
   return (
-    <div
-      className={
-        embedded
-          ? "h-8 flex items-center px-0 text-xs select-none"
-          : "h-8 bg-[#3c3c3c] border-b border-[#2b2b2b] flex items-center px-2 text-xs select-none"
-      }
-    >
+    <div className={`flex items-center bg-[var(--menu-background)] text-xs select-none relative z-50 ${embedded ? "h-8 px-0" : "h-8 border-b border-[var(--border)] px-2"}`}>
       {menus.map((menu) => (
-        <div key={menu.id} className="relative">
+        <div key={menu.id} className="relative h-full">
           <button
-            className={`px-2.5 py-1.5 ${embedded ? "hover:bg-[#3c3c3c]" : "hover:bg-[#4c4c4c]"} rounded transition-colors ${
-              activeMenu === menu.id ? "bg-[#4c4c4c]" : ""
+            className={`px-3 h-full hover:bg-[var(--hover)] transition-colors ${
+              activeMenu === menu.id ? "bg-[var(--hover)]" : ""
             }`}
-            onMouseEnter={() => activeMenu && setActiveMenu(menu.id)}
             onClick={() => setActiveMenu(activeMenu === menu.id ? null : menu.id)}
+            onMouseEnter={() => activeMenu && setActiveMenu(menu.id)}
           >
             {menu.label}
           </button>
-          {activeMenu === menu.id && menu.items.length > 0 && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
-              <div className="absolute top-full left-0 mt-0.5 bg-[#2b2b2b] border border-[#454545] rounded shadow-xl z-20 min-w-[220px] py-1">
-                {menu.items.map((item, idx) => {
-                  if (item.type === "separator") {
-                    return <div key={idx} className="h-px bg-[#454545] my-1 mx-2" />
-                  }
-                  if (item.submenu) {
-                    return (
-                      <div key={idx} className="relative group">
-                        <div className="w-full px-3 py-1.5 hover:bg-[#3c7dd6] hover:text-white flex items-center justify-between text-left transition-colors">
-                          <span>{item.label}</span>
-                          <span className="ml-8">›</span>
-                        </div>
-                        <div className="hidden group-hover:block absolute left-full top-0 ml-1 bg-[#2b2b2b] border border-[#454545] rounded shadow-xl min-w-[160px] py-1">
-                          {item.submenu.map((subitem, subidx) => (
-                            <button
-                              key={subidx}
-                              className="w-full px-3 py-1.5 hover:bg-[#3c7dd6] hover:text-white text-left transition-colors"
-                              onClick={() => {
-                                subitem.action?.()
-                                setActiveMenu(null)
-                              }}
-                            >
-                              {subitem.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  }
-                  return (
+
+          {activeMenu === menu.id && (
+            <div className="absolute top-full left-0 w-64 bg-[var(--menu-background)] border border-[var(--border)] shadow-xl py-1 animate-in fade-in zoom-in duration-75">
+              {menu.items.map((item, idx) => (
+                <div key={idx} className="relative group/sub">
+                  {item.type === "separator" ? (
+                    <div className="h-px bg-[var(--border)] my-1 mx-2" />
+                  ) : (
                     <button
-                      key={idx}
-                      className="w-full px-3 py-1.5 hover:bg-[#3c7dd6] hover:text-white flex items-center justify-between text-left transition-colors"
+                      className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-[var(--accent)] hover:text-white group transition-colors"
                       onClick={() => {
-                        item.action?.()
-                        setActiveMenu(null)
+                        if (!item.submenu) {
+                          item.action?.()
+                          setActiveMenu(null)
+                        }
                       }}
                     >
                       <span>{item.label}</span>
-                      {item.shortcut && <span className="text-xs text-zinc-500 ml-8">{item.shortcut}</span>}
+                      {item.shortcut && (
+                        <span className="text-[10px] text-zinc-500 group-hover:text-zinc-200">{item.shortcut}</span>
+                      )}
+                      {item.submenu && <span className="text-[10px] opacity-60">▶</span>}
                     </button>
-                  )
-                })}
-              </div>
-            </>
+                  )}
+
+                  {item.submenu && (
+                    <div className="absolute left-full top-0 w-48 bg-[var(--menu-background)] border border-[var(--border)] shadow-xl py-1 hidden group-hover/sub:block animate-in slide-in-from-left-1 duration-75">
+                      {item.submenu.map((subItem, subIdx) => (
+                        <button
+                          key={subIdx}
+                          className="w-full px-3 py-1.5 text-left hover:bg-[var(--accent)] hover:text-white transition-colors"
+                          onClick={() => {
+                            subItem.action?.()
+                            setActiveMenu(null)
+                          }}
+                        >
+                          {subItem.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       ))}
+      {activeMenu && <div className="fixed inset-0 z-[-1]" onClick={() => setActiveMenu(null)} />}
     </div>
   )
 }

@@ -12,6 +12,7 @@ export interface EditorTab {
   content: string
   modified: boolean
   language: string
+  editorViewMode?: "design" | "source"
 }
 
 export type ViewMode = "source" | "adofai"

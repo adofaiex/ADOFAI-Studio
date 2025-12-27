@@ -4,10 +4,11 @@
 /node_modules
 
 /.next/
+/.vite/
 /out/
 /dist/
 /dist-electron/
-
+/release/
 /build
 
 # debug

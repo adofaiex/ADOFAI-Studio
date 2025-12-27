@@ -20,9 +20,10 @@ import { type Language, useTranslation } from "../lib/i18n"
 import { Level } from "adofai"
 
 interface FileExplorerProps {
-  onFileSelect: (filePath: string) => void
+  onFileSelect: (filePath: string, viewMode?: "design" | "source") => void
   selectedFile: string | null
   language: Language
+  theme?: string
   rootPath: string | null
   onRootPathChange: (path: string | null) => void
   isCollapsed?: boolean
@@ -668,8 +669,8 @@ export function FileExplorer({
       return (
         <div key={`${node.path}-${index}`}>
           <div
-            className={`flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-[#2a2d2e] ${
-              isSelected ? "bg-[#2a2d2e]" : ""
+            className={`flex items-center gap-1 px-2 py-1 cursor-pointer transition-colors ${
+              isSelected ? "bg-[var(--accent)] text-white" : "hover:bg-[var(--hover)] text-[var(--foreground)]"
             }`}
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
             onClick={() => toggleNode(node, currentPath)}
@@ -678,9 +679,9 @@ export function FileExplorer({
             {node.isDirectory ? (
               <>
                 {node.isExpanded ? (
-                  <ChevronDown size={16} className="text-white" />
+                  <ChevronDown size={16} className={isSelected ? "text-white" : "text-[var(--foreground)] opacity-50"} />
                 ) : (
-                  <ChevronRight size={16} className="text-white" />
+                  <ChevronRight size={16} className={isSelected ? "text-white" : "text-[var(--foreground)] opacity-50"} />
                 )}
                 {node.isExpanded ? (
                   <FolderOpen size={16} className="text-[#dcb67a]" />
@@ -694,7 +695,7 @@ export function FileExplorer({
                 {getFileIcon(node.name)}
               </>
             )}
-            <span className="text-sm text-white ml-1" title={node.name}>
+            <span className="text-sm ml-1 truncate" title={node.name}>
               {truncateFileName(node.name)}
             </span>
           </div>
@@ -725,49 +726,52 @@ export function FileExplorer({
         {readme && (
           <div className="mb-4">
             <div
-              className={`flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-[#2a2d2e] ${
-                selectedFile === readme ? "bg-[#2a2d2e]" : ""
+              className={`flex items-center gap-1 px-2 py-1 cursor-pointer transition-colors ${
+                selectedFile === readme ? "bg-[var(--accent)] text-white" : "hover:bg-[var(--hover)] text-[var(--foreground)]"
               }`}
               onClick={() => onFileSelect(readme)}
               onContextMenu={(e) => handleContextMenu(e, createFileNode(readme))}
             >
               <FileText size={16} className="text-[#6aafff]" />
-              <span className="text-sm text-white ml-1 font-semibold">README.md</span>
+              <span className="text-sm ml-1 font-semibold">README.md</span>
             </div>
           </div>
         )}
 
         <div className="mb-2">
           <div
-            className="px-2 py-1 text-xs font-semibold text-zinc-400 uppercase flex items-center gap-1 cursor-pointer hover:text-white transition-colors"
+            className="px-2 py-1 text-xs font-semibold text-[var(--foreground)] opacity-50 uppercase flex items-center gap-1 cursor-pointer hover:opacity-100 transition-colors"
             onClick={() => toggleCategory("levels")}
           >
             {collapsedCategories.has("levels") ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
             {t.levels} ({levels.length})
           </div>
           {!collapsedCategories.has("levels") &&
-            levels.map((level) => (
-              <div
-                key={level.path}
-                className={`flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-[#2a2d2e] ${
-                  selectedFile === level.path ? "bg-[#2a2d2e]" : ""
-                }`}
-                style={{ paddingLeft: "20px" }}
-                onClick={() => onFileSelect(level.path)}
-                onContextMenu={(e) => handleContextMenu(e, createFileNode(level.path))}
-              >
-                <FileCode size={16} className="text-[#6aafff]" />
-                <span className="text-sm text-white ml-1" title={level.name}>
-                  {truncateFileName(level.name)}
-                </span>
-              </div>
-            ))}
+            levels.map((level) => {
+              const isSelected = selectedFile === level.path
+              return (
+                <div
+                  key={level.path}
+                  className={`flex items-center gap-1 px-2 py-1 cursor-pointer transition-colors ${
+                    isSelected ? "bg-[var(--accent)] text-white" : "hover:bg-[var(--hover)] text-[var(--foreground)]"
+                  }`}
+                  style={{ paddingLeft: "20px" }}
+                  onClick={() => onFileSelect(level.path)}
+                  onContextMenu={(e) => handleContextMenu(e, createFileNode(level.path))}
+                >
+                  <FileCode size={16} className="text-[#6aafff]" />
+                  <span className="text-sm ml-1 truncate" title={level.name}>
+                    {truncateFileName(level.name)}
+                  </span>
+                </div>
+              )
+            })}
         </div>
 
         {decorations.length > 0 && (
           <div className="mb-2">
             <div
-              className="px-2 py-1 text-xs font-semibold text-zinc-400 uppercase flex items-center gap-1 cursor-pointer hover:text-white transition-colors"
+              className="px-2 py-1 text-xs font-semibold text-[var(--foreground)] opacity-50 uppercase flex items-center gap-1 cursor-pointer hover:opacity-100 transition-colors"
               onClick={() => toggleCategory("decorations")}
             >
               {collapsedCategories.has("decorations") ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
@@ -776,18 +780,19 @@ export function FileExplorer({
             {!collapsedCategories.has("decorations") &&
               decorations.map((filePath) => {
                 const fileName = filePath.split(/[\\/]/).pop() || ""
+                const isSelected = selectedFile === filePath
                 return (
                   <div
                     key={filePath}
-                    className={`flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-[#2a2d2e] ${
-                      selectedFile === filePath ? "bg-[#2a2d2e]" : ""
+                    className={`flex items-center gap-1 px-2 py-1 cursor-pointer transition-colors ${
+                      isSelected ? "bg-[var(--accent)] text-white" : "hover:bg-[var(--hover)] text-[var(--foreground)]"
                     }`}
                     style={{ paddingLeft: "20px" }}
                     onClick={() => onFileSelect(filePath)}
                     onContextMenu={(e) => handleContextMenu(e, createFileNode(filePath))}
                   >
                     <ImageIcon size={16} className="text-[#a8dadc]" />
-                    <span className="text-sm text-white ml-1" title={fileName}>
+                    <span className="text-sm ml-1 truncate" title={fileName}>
                       {truncateFileName(fileName)}
                     </span>
                   </div>
@@ -799,7 +804,7 @@ export function FileExplorer({
         {audio.length > 0 && (
           <div className="mb-2">
             <div
-              className="px-2 py-1 text-xs font-semibold text-zinc-400 uppercase flex items-center gap-1 cursor-pointer hover:text-white transition-colors"
+              className="px-2 py-1 text-xs font-semibold text-[var(--foreground)] opacity-50 uppercase flex items-center gap-1 cursor-pointer hover:opacity-100 transition-colors"
               onClick={() => toggleCategory("audio")}
             >
               {collapsedCategories.has("audio") ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
@@ -808,18 +813,19 @@ export function FileExplorer({
             {!collapsedCategories.has("audio") &&
               audio.map((filePath) => {
                 const fileName = filePath.split(/[\\/]/).pop() || ""
+                const isSelected = selectedFile === filePath
                 return (
                   <div
                     key={filePath}
-                    className={`flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-[#2a2d2e] ${
-                      selectedFile === filePath ? "bg-[#2a2d2e]" : ""
+                    className={`flex items-center gap-1 px-2 py-1 cursor-pointer transition-colors ${
+                      isSelected ? "bg-[var(--accent)] text-white" : "hover:bg-[var(--hover)] text-[var(--foreground)]"
                     }`}
                     style={{ paddingLeft: "20px" }}
                     onClick={() => onFileSelect(filePath)}
                     onContextMenu={(e) => handleContextMenu(e, createFileNode(filePath))}
                   >
                     <Music size={16} className="text-[#ff6b9d]" />
-                    <span className="text-sm text-white ml-1" title={fileName}>
+                    <span className="text-sm ml-1 truncate" title={fileName}>
                       {truncateFileName(fileName)}
                     </span>
                   </div>
@@ -831,7 +837,7 @@ export function FileExplorer({
         {miscellaneous.length > 0 && (
           <div>
             <div
-              className="px-2 py-1 text-xs font-semibold text-zinc-400 uppercase flex items-center gap-1 cursor-pointer hover:text-white transition-colors"
+              className="px-2 py-1 text-xs font-semibold text-[var(--foreground)] opacity-50 uppercase flex items-center gap-1 cursor-pointer hover:opacity-100 transition-colors"
               onClick={() => toggleCategory("miscellaneous")}
             >
               {collapsedCategories.has("miscellaneous") ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
@@ -840,18 +846,19 @@ export function FileExplorer({
             {!collapsedCategories.has("miscellaneous") &&
               miscellaneous.map((filePath) => {
                 const fileName = filePath.split(/[\\/]/).pop() || ""
+                const isSelected = selectedFile === filePath
                 return (
                   <div
                     key={filePath}
-                    className={`flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-[#2a2d2e] ${
-                      selectedFile === filePath ? "bg-[#2a2d2e]" : ""
+                    className={`flex items-center gap-1 px-2 py-1 cursor-pointer transition-colors ${
+                      isSelected ? "bg-[var(--accent)] text-white" : "hover:bg-[var(--hover)] text-[var(--foreground)]"
                     }`}
                     style={{ paddingLeft: "20px" }}
                     onClick={() => onFileSelect(filePath)}
                     onContextMenu={(e) => handleContextMenu(e, createFileNode(filePath))}
                   >
                     {getFileIcon(fileName)}
-                    <span className="text-sm text-white ml-1" title={fileName}>
+                    <span className="text-sm ml-1 truncate" title={fileName}>
                       {truncateFileName(fileName)}
                     </span>
                   </div>
@@ -865,38 +872,38 @@ export function FileExplorer({
 
   if (isCollapsed) {
     return (
-      <div className="w-12 h-full bg-[#2b2b2b] border-r border-[#323232] flex flex-col items-center py-3">
+      <div className="w-12 h-full bg-[var(--sidebar)] border-r border-[var(--border)] flex flex-col items-center py-3">
         <button
           onClick={() => setIsCollapsed(false)}
-          className="p-2 hover:bg-[#3c3c3c] rounded transition-colors"
+          className="p-2 hover:bg-[var(--hover)] rounded transition-colors"
           title={t.solutionExplorer}
         >
-          <ChevronRight size={16} className="text-zinc-400" />
+          <ChevronRight size={16} className="text-[var(--foreground)] opacity-50" />
         </button>
       </div>
     )
   }
 
   return (
-    <div className="w-full h-full bg-[#2b2b2b] border-r border-[#323232] flex flex-col select-none">
-      <div className="px-4 py-3 border-b border-[#323232] flex items-center justify-between shrink-0">
-        <h2 className="text-xs font-medium text-zinc-400 uppercase tracking-wide truncate">{t.solutionExplorer}</h2>
+    <div className="w-full h-full bg-[var(--sidebar)] border-r border-[var(--border)] flex flex-col select-none">
+      <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between shrink-0">
+        <h2 className="text-xs font-medium text-[var(--foreground)] opacity-50 uppercase tracking-wide truncate">{t.solutionExplorer}</h2>
         <button
           onClick={() => setIsCollapsed(true)}
-          className="p-1 hover:bg-[#3c3c3c] rounded transition-colors shrink-0"
+          className="p-1 hover:bg-[var(--hover)] rounded transition-colors shrink-0"
           title="Collapse"
         >
-          <ChevronUp size={14} className="text-zinc-400 rotate-[-90deg]" />
+          <ChevronUp size={14} className="text-[var(--foreground)] opacity-50 rotate-[-90deg]" />
         </button>
       </div>
 
       {rootPath && (
-        <div className="px-3 py-2 border-b border-[#323232] shrink-0">
+        <div className="px-3 py-2 border-b border-[var(--border)] shrink-0">
           <div className="relative" ref={viewSelectorRef}>
             <button
               onClick={() => setIsViewSelectorOpen(!isViewSelectorOpen)}
-              className={`w-full h-8 px-2 py-1.5 text-xs bg-[#3c3c3c] rounded border border-[#454545] transition-all flex items-center justify-between group overflow-hidden ${
-                isViewSelectorOpen ? "border-[#3c7dd6] text-white" : "text-zinc-300 hover:bg-[#4c4c4c] hover:text-white"
+              className={`w-full h-8 px-2 py-1.5 text-xs bg-[var(--background)] rounded border border-[var(--border)] transition-all flex items-center justify-between group overflow-hidden ${
+                isViewSelectorOpen ? "border-[var(--accent)] text-[var(--foreground)]" : "text-[var(--foreground)] opacity-70 hover:bg-[var(--hover)] hover:opacity-100"
               }`}
             >
               <div className="flex items-center gap-2 min-w-0">
@@ -910,30 +917,30 @@ export function FileExplorer({
             </button>
 
             {isViewSelectorOpen && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-[#2b2b2b] border border-[#454545] rounded shadow-xl z-50 py-1">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--menu-background)] border border-[var(--border)] rounded shadow-xl z-50 py-1">
                 <button
                   onClick={() => {
                     setViewMode("source")
                     setIsViewSelectorOpen(false)
                   }}
-                  className={`w-full px-3 py-1.5 text-left text-xs flex items-center justify-between hover:bg-[#3c7dd6] hover:text-white transition-colors ${
-                    viewMode === "source" ? "text-[#3c7dd6]" : "text-zinc-300"
+                  className={`w-full px-3 py-1.5 text-left text-xs flex items-center justify-between hover:bg-[var(--accent)] hover:text-white transition-colors ${
+                    viewMode === "source" ? "text-[var(--accent)]" : "text-[var(--foreground)] opacity-70"
                   }`}
                 >
                   <span className="truncate">{t.sourceFiles}</span>
-                  {viewMode === "source" && <div className="w-1 h-1 rounded-full bg-[#3c7dd6] shrink-0" />}
+                  {viewMode === "source" && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shrink-0" />}
                 </button>
                 <button
                   onClick={() => {
                     setViewMode("adofai")
                     setIsViewSelectorOpen(false)
                   }}
-                  className={`w-full px-3 py-1.5 text-left text-xs flex items-center justify-between hover:bg-[#3c7dd6] hover:text-white transition-colors ${
-                    viewMode === "adofai" ? "text-[#3c7dd6]" : "text-zinc-300"
+                  className={`w-full px-3 py-1.5 text-left text-xs flex items-center justify-between hover:bg-[var(--accent)] hover:text-white transition-colors ${
+                    viewMode === "adofai" ? "text-[var(--accent)]" : "text-[var(--foreground)] opacity-70"
                   }`}
                 >
                   <span className="truncate">{t.adofaiView}</span>
-                  {viewMode === "adofai" && <div className="w-1 h-1 rounded-full bg-[#3c7dd6] shrink-0" />}
+                  {viewMode === "adofai" && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shrink-0" />}
                 </button>
               </div>
             )}
@@ -949,11 +956,11 @@ export function FileExplorer({
             renderADOFAIView()
           )
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-zinc-500 text-sm px-4 gap-3">
+          <div className="flex flex-col items-center justify-center h-full text-[var(--foreground)] opacity-50 text-sm px-4 gap-3">
             <div className="text-center">{t.noFolderOpen}</div>
             <button
               onClick={handleOpenFolder}
-              className="px-3 py-1.5 text-xs bg-[#3c7dd6] hover:bg-[#4a8ce7] text-white rounded transition-colors"
+              className="px-3 py-1.5 text-xs bg-[var(--accent)] hover:opacity-90 text-white rounded transition-colors"
             >
               {t.openFolder}
             </button>
@@ -964,39 +971,58 @@ export function FileExplorer({
       {contextMenu && (
         <div
           ref={contextMenuRef}
-          className="fixed bg-[#3c3c3c] border border-[#454545] rounded shadow-lg py-1 z-[1000] min-w-[200px] max-h-[400px] overflow-y-auto"
+          className="fixed bg-[var(--menu-background)] border border-[var(--border)] rounded shadow-lg py-1 z-[1000] min-w-[200px] max-h-[400px] overflow-y-auto"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <button
             onClick={handleNewFile}
-            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
+            className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
           >
             {t.newFile}
           </button>
           <button
             onClick={handleNewFolder}
-            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
+            className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
           >
             {t.newFolder}
           </button>
-          <div className="border-t border-[#454545] my-1" />
+          <div className="border-t border-[var(--border)] my-1" />
           <button
             onClick={handleRename}
-            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
+            className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
           >
             {t.rename}
           </button>
           {contextMenu.targetPath.endsWith(".adofai") && (
             <>
               <button
+                onClick={() => {
+                  onFileSelect(contextMenu.targetPath, "design")
+                  setContextMenu(null)
+                }}
+                className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
+              >
+                {t.openInDesignView}
+              </button>
+              <button
+                onClick={() => {
+                  onFileSelect(contextMenu.targetPath, "source")
+                  setContextMenu(null)
+                }}
+                className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
+              >
+                {t.openInSourceView}
+              </button>
+              <div className="border-t border-[var(--border)] my-1" />
+              <button
                 onClick={handleClearEffect}
-                className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
+                className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
               >
                 {t.clearEffect}
               </button>
               <button
                 onClick={handleClearDeco}
-                className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
+                className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
               >
                 {t.clearDeco}
               </button>
@@ -1004,26 +1030,26 @@ export function FileExplorer({
           )}
           <button
             onClick={handleDelete}
-            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
+            className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
           >
             {t.delete}
           </button>
           <button
             onClick={handleCopyPath}
-            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
+            className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
           >
             {t.copyPath}
           </button>
           <button
             onClick={handleCopyRelativePath}
-            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
+            className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
           >
             {t.copyRelativePath}
           </button>
-          <div className="border-t border-[#454545] my-1" />
+          <div className="border-t border-[var(--border)] my-1" />
           <button
             onClick={handleRevealInExplorer}
-            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
+            className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
           >
             {t.revealInExplorer}
           </button>
@@ -1032,7 +1058,7 @@ export function FileExplorer({
               refreshDirectory()
               setContextMenu(null)
             }}
-            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#4a8ce7] transition-colors"
+            className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
           >
             {t.refresh}
           </button>
@@ -1042,15 +1068,15 @@ export function FileExplorer({
       {/* Prompt Dialog */}
       {promptDialog.isOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-[#2b2b2b] border border-[#3c3c3c] rounded-lg shadow-2xl w-[400px] overflow-hidden">
-            <div className="px-4 py-3 border-b border-[#3c3c3c] bg-[#323232]">
-              <h3 className="text-sm font-medium text-white">{promptDialog.title}</h3>
+          <div className="bg-[var(--menu-background)] border border-[var(--border)] rounded-lg shadow-2xl w-[400px] overflow-hidden">
+            <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)]">
+              <h3 className="text-sm font-medium text-[var(--foreground)]">{promptDialog.title}</h3>
             </div>
             <div className="p-4">
               <input
                 autoFocus
                 type="text"
-                className="w-full bg-[#3c3c3c] border border-[#454545] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3c7dd6]"
+                className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]"
                 defaultValue={promptDialog.defaultValue}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -1061,15 +1087,15 @@ export function FileExplorer({
                 }}
               />
             </div>
-            <div className="px-4 py-3 bg-[#323232] flex justify-end gap-2">
+            <div className="px-4 py-3 bg-[var(--sidebar)] flex justify-end gap-2">
               <button
-                className="px-4 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-[#454545] rounded transition-colors"
+                className="px-4 py-1.5 text-xs text-[var(--foreground)] opacity-60 hover:opacity-100 hover:bg-[var(--hover)] rounded transition-colors"
                 onClick={() => promptDialog.callback(null)}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-1.5 text-xs bg-[#3c7dd6] text-white hover:bg-[#4a8ce7] rounded transition-colors"
+                className="px-4 py-1.5 text-xs bg-[var(--accent)] text-white hover:opacity-90 rounded transition-colors"
                 onClick={(e) => {
                   const input = e.currentTarget.parentElement?.previousElementSibling?.querySelector("input") as HTMLInputElement
                   promptDialog.callback(input?.value || "")
@@ -1083,24 +1109,24 @@ export function FileExplorer({
       )}
       {selectDialog.isOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-[#2b2b2b] border border-[#3c3c3c] rounded-lg shadow-2xl w-[420px] overflow-hidden">
-            <div className="px-4 py-3 border-b border-[#3c3c3c] bg-[#323232]">
-              <h3 className="text-sm font-medium text-white">{selectDialog.title}</h3>
+          <div className="bg-[var(--menu-background)] border border-[var(--border)] rounded-lg shadow-2xl w-[420px] overflow-hidden">
+            <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)]">
+              <h3 className="text-sm font-medium text-[var(--foreground)]">{selectDialog.title}</h3>
             </div>
             <div className="p-3 max-h-[300px] overflow-y-auto">
               {selectDialog.options.map((opt) => (
                 <button
                   key={opt}
-                  className="w-full text-left px-3 py-2 rounded text-sm text-zinc-300 hover:bg-[#454545] hover:text-white"
+                  className="w-full text-left px-3 py-2 rounded text-sm text-[var(--foreground)] opacity-70 hover:opacity-100 hover:bg-[var(--hover)]"
                   onClick={() => selectDialog.callback(opt)}
                 >
                   {opt}
                 </button>
               ))}
             </div>
-            <div className="px-4 py-3 bg-[#323232] flex justify-end">
+            <div className="px-4 py-3 bg-[var(--sidebar)] flex justify-end">
               <button
-                className="px-4 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-[#454545] rounded transition-colors"
+                className="px-4 py-1.5 text-xs text-[var(--foreground)] opacity-60 hover:opacity-100 hover:bg-[var(--hover)] rounded transition-colors"
                 onClick={() => selectDialog.callback(null)}
               >
                 Cancel

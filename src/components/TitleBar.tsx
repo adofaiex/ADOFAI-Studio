@@ -1,6 +1,7 @@
 "use client"
 
 import { Minus, Square, Copy, X } from "lucide-react"
+import asIcon from "../assets/icon.png"
 import { useState, useEffect, type ReactNode } from "react"
 
 interface TitleBarProps {
@@ -44,32 +45,32 @@ export function TitleBar({ title = "ADOFAI Studio", children }: TitleBarProps) {
   if (!isElectron) return null
 
   return (
-    <div className="h-8 bg-[#2b2b2b] flex items-center justify-between pl-2 pr-0 select-none border-b border-[#323232] drag-region">
+    <div className="h-8 bg-[var(--menu-background)] flex items-center justify-between pl-2 pr-0 select-none border-b border-[var(--border)] drag-region">
       <div className="flex items-center gap-2 no-drag">
-        <img src="/icon.png" alt="App Icon" className="w-4 h-4" />
-        {children ? <>{children}</> : <div className="text-xs text-zinc-400 font-medium">{title}</div>}
+        <img src={asIcon} alt="App Icon" className="w-4 h-4" />
+        {children ? <>{children}</> : <div className="text-xs text-[var(--foreground)] opacity-60 font-medium">{title}</div>}
       </div>
       <div className="flex items-center gap-1 no-drag">
         <button
           onClick={handleMinimize}
-          className="w-12 h-8 flex items-center justify-center hover:bg-[#3c3c3c] transition-colors"
+          className="w-12 h-8 flex items-center justify-center hover:bg-[var(--hover)] transition-colors"
           title="Minimize"
         >
-          <Minus size={14} className="text-zinc-400" />
+          <Minus size={14} className="text-[var(--foreground)] opacity-60" />
         </button>
         <button
           onClick={handleMaximize}
-          className="w-12 h-8 flex items-center justify-center hover:bg-[#3c3c3c] transition-colors"
+          className="w-12 h-8 flex items-center justify-center hover:bg-[var(--hover)] transition-colors"
           title={isMaximized ? "Restore" : "Maximize"}
         >
-          {isMaximized ? <Copy size={12} className="text-zinc-400" /> : <Square size={12} className="text-zinc-400" />}
+          {isMaximized ? <Copy size={12} className="text-[var(--foreground)] opacity-60" /> : <Square size={12} className="text-[var(--foreground)] opacity-60" />}
         </button>
         <button
           onClick={handleClose}
-          className="w-12 h-8 flex items-center justify-center hover:bg-red-600 transition-colors"
+          className="w-12 h-8 flex items-center justify-center hover:bg-red-600 hover:text-white transition-colors"
           title="Close"
         >
-          <X size={16} className="text-zinc-400" />
+          <X size={16} className="text-[var(--foreground)] opacity-60 group-hover:text-white" />
         </button>
       </div>
     </div>

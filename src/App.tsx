@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { FileExplorer } from "./components/FileExplorer"
 import { EditorPane } from "./components/EditorPane"
 import { MenuBar } from "./components/MenuBar"
@@ -9,11 +9,15 @@ import { StatusBar } from "./components/StatusBar"
 import { TitleBar } from "./components/TitleBar"
 import type { EditorTab } from "./types/file-system"
 import type { Language } from "./lib/i18n"
+import type { ThemeType } from "./types/theme"
+import { themes } from "./types/theme"
 
 function App() {
+  const editorPaneRef = useRef<any>(null)
   const [tabs, setTabs] = useState<EditorTab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const [language, setLanguage] = useState<Language>("en")
+  const [theme, setTheme] = useState<ThemeType>("dark")
   const [isElectron, setIsElectron] = useState(false)
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
   const [rootPath, setRootPath] = useState<string | null>(null)
@@ -25,9 +29,26 @@ function App() {
     setIsElectron(typeof window !== "undefined" && window.electronAPI !== undefined)
   }, [])
 
-  const handleFileSelect = async (filePath: string) => {
+  useEffect(() => {
+    const currentTheme = themes[theme]
+    const root = document.documentElement
+    Object.entries(currentTheme).forEach(([key, value]) => {
+      // Convert camelCase to kebab-case for CSS variables
+      const cssKey = `--${key.replace(/([A-Z])/g, "-$1").toLowerCase()}`
+      root.style.setProperty(cssKey, value)
+    })
+    // Also set a data-theme attribute for CSS targeting
+    root.setAttribute("data-theme", theme)
+  }, [theme])
+
+  const handleFileSelect = async (filePath: string, viewMode?: "design" | "source") => {
     const existingTab = tabs.find((tab) => tab.path === filePath)
     if (existingTab) {
+      if (viewMode && existingTab.editorViewMode !== viewMode) {
+        setTabs((prev) =>
+          prev.map((tab) => (tab.id === existingTab.id ? { ...tab, editorViewMode: viewMode } : tab)),
+        )
+      }
       setActiveTabId(existingTab.id)
       return
     }
@@ -38,6 +59,7 @@ function App() {
       const content = isImage || isAudio ? "" : await window.electronAPI.readFile(filePath)
       const fileName = filePath.split(/[\\/]/).pop() || "untitled"
       const languageType = getLanguageFromPath(filePath)
+      const isAdofai = filePath.endsWith(".adofai")
 
       const unsavedContent = unsavedChanges[filePath]
       const finalContent = unsavedContent !== undefined ? unsavedContent : content
@@ -50,6 +72,7 @@ function App() {
         content: finalContent,
         modified: isModified,
         language: languageType,
+        editorViewMode: viewMode || (isAdofai ? "design" : "source"),
       }
 
       setTabs((prev) => [...prev, newTab])
@@ -184,6 +207,37 @@ function App() {
     })
   }
 
+  const handleTabMoveToStart = (index: number) => {
+    setTabs((prev) => {
+      const newTabs = [...prev]
+      const [movedTab] = newTabs.splice(index, 1)
+      newTabs.unshift(movedTab)
+      return newTabs
+    })
+  }
+
+  const handleTabMoveToEnd = (index: number) => {
+    setTabs((prev) => {
+      const newTabs = [...prev]
+      const [movedTab] = newTabs.splice(index, 1)
+      newTabs.push(movedTab)
+      return newTabs
+    })
+  }
+
+  const handleTabCloseOthers = (tabId: string) => {
+    setTabs((prev) => prev.filter((tab) => tab.id === tabId))
+    setActiveTabId(tabId)
+  }
+
+  const handleTabToggleViewMode = (tabId: string) => {
+    const tab = tabs.find((t) => t.id === tabId)
+    if (tab && tab.path.endsWith(".adofai")) {
+      const newMode = tab.editorViewMode === "design" ? "source" : "design"
+      handleFileSelect(tab.path, newMode)
+    }
+  }
+
   const activeTab = tabs.find((tab) => tab.id === activeTabId)
 
   useEffect(() => {
@@ -196,16 +250,16 @@ function App() {
 
   if (!isElectron) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#1e1e1e]">
-        <div className="text-center max-w-md p-8 bg-[#2b2b2b] rounded-lg border border-[#3c3c3c] shadow-xl">
-          <h1 className="text-2xl font-bold text-white mb-4">ADOFAI Studio</h1>
-          <p className="text-zinc-400 mb-6">
+      <div className="h-full flex items-center justify-center bg-[var(--background)]">
+        <div className="text-center max-w-md p-8 bg-[var(--menu-background)] rounded-lg border border-[var(--border)] shadow-xl">
+          <h1 className="text-2xl font-bold text-[var(--foreground)] mb-4">ADOFAI Studio</h1>
+          <p className="text-[var(--foreground)] opacity-60 mb-6">
             This application requires Electron to run properly. The file system features are not available in the
             browser preview.
           </p>
-          <div className="bg-[#1e1e1e] p-4 rounded-lg text-left text-sm border border-[#3c3c3c]">
-            <p className="font-semibold text-white mb-2">To run this app:</p>
-            <ol className="list-decimal list-inside space-y-1 text-zinc-400">
+          <div className="bg-[var(--background)] p-4 rounded-lg text-left text-sm border border-[var(--border)]">
+            <p className="font-semibold text-[var(--foreground)] mb-2">To run this app:</p>
+            <ol className="list-decimal list-inside space-y-1 text-[var(--foreground)] opacity-60">
               <li>Download the ZIP file</li>
               <li>Extract and open in terminal</li>
               <li>Run: npm install</li>
@@ -218,15 +272,29 @@ function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#1e1e1e] text-white">
+    <div className="h-screen flex flex-col bg-[var(--background)] text-[var(--foreground)]">
       <TitleBar title={activeTab ? `${activeTab.name} - ADOFAI Studio` : "ADOFAI Studio"}>
         <MenuBar
           language={language}
           onLanguageChange={setLanguage}
+          theme={theme}
+          onThemeChange={setTheme}
           onOpenFolder={handleOpenFolder}
           onOpenFile={handleOpenFile}
           onSave={() => activeTab && handleSave(activeTab.id, activeTab.content)}
           onSaveAll={handleSaveAll}
+          onClose={() => activeTabId && handleTabClose(activeTabId)}
+          onCloseAll={() => {
+            tabs.forEach(t => handleTabClose(t.id))
+          }}
+          onUndo={() => editorPaneRef.current?.undo()}
+          onRedo={() => editorPaneRef.current?.redo()}
+          onCut={() => editorPaneRef.current?.cut()}
+          onCopy={() => editorPaneRef.current?.copy()}
+          onPaste={() => editorPaneRef.current?.paste()}
+          onFind={() => editorPaneRef.current?.find()}
+          onReplace={() => editorPaneRef.current?.replace()}
+          onSelectAll={() => editorPaneRef.current?.selectAll()}
           embedded
         />
       </TitleBar>
@@ -237,6 +305,7 @@ function App() {
               onFileSelect={handleFileSelect}
               selectedFile={activeTab?.path || null}
               language={language}
+              theme={theme}
               rootPath={rootPath}
               onRootPathChange={setRootPath}
               isCollapsed={isExplorerCollapsed}
@@ -252,16 +321,22 @@ function App() {
             onTabClick={setActiveTabId}
             onTabClose={handleTabClose}
             onTabReorder={handleTabReorder}
+            onTabMoveToStart={handleTabMoveToStart}
+            onTabMoveToEnd={handleTabMoveToEnd}
+            onTabCloseOthers={handleTabCloseOthers}
+            onTabToggleViewMode={handleTabToggleViewMode}
           />
 
           <div className="flex-1 min-h-0">
             <EditorPane
+              ref={editorPaneRef}
               tab={activeTab || null}
               onContentChange={handleContentChange}
               onSave={handleSave}
               onSaveAll={handleSaveAll}
               onCursorPositionChange={handleCursorPositionChange}
               language={language}
+              theme={theme}
             />
           </div>
         </div>
