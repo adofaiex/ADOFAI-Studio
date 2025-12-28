@@ -24,6 +24,7 @@ export interface ElectronAPI {
   windowClose: () => Promise<void>
   windowSetTitle: (title: string) => Promise<void>
   windowIsMaximized: () => Promise<boolean>
+  openExternal: (url: string) => Promise<void>
 }
 
 declare global {

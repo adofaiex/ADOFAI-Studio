@@ -12,6 +12,7 @@ import {
   ImageIcon,
   Music,
   ChevronUp,
+  ExternalLink,
 } from "lucide-react"
 import type { FileEntry } from "../types/electron"
 import type { ViewMode } from "../types/file-system"
@@ -181,6 +182,18 @@ export function FileExplorer({
     options: [],
     callback: () => {},
   })
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    showLink?: boolean
+    callback: (value: boolean) => void
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    callback: () => {},
+  })
   const viewSelectorRef = useRef<HTMLDivElement>(null)
 
   const showPrompt = (title: string, defaultValue: string): Promise<string | null> => {
@@ -196,6 +209,22 @@ export function FileExplorer({
       })
     })
   }
+
+  const showConfirm = (title: string, message: string, showLink?: boolean): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setConfirmDialog({
+        isOpen: true,
+        title,
+        message,
+        showLink,
+        callback: (value) => {
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }))
+          resolve(value)
+        },
+      })
+    })
+  }
+
   const showSelect = (title: string, options: string[]): Promise<string | null> => {
     return new Promise((resolve) => {
       setSelectDialog({
@@ -612,6 +641,45 @@ export function FileExplorer({
     } catch (error) {
       console.error("Failed to upgrade/downgrade:", error)
       showNotification(t.upgradeFailed, "error")
+    }
+    setContextMenu(null)
+  }
+
+  const handleCompressLevel = async () => {
+    if (!contextMenu) return
+    const target = contextMenu.targetPath
+    if (!target.endsWith(".adofai")) {
+      setContextMenu(null)
+      return
+    }
+
+    try {
+      const confirmed = await showConfirm(t.compressLevel, t.compressConfirmMessage, true)
+      if (!confirmed) {
+        setContextMenu(null)
+        return
+      }
+
+      const content = await window.electronAPI.readFile(target)
+      const parser = new StringParser()
+      const rawObj = parser.parse(content)
+
+      // Compress: single line JSON stringify
+      const compressed = JSON.stringify(rawObj)
+
+      // If the file is open in a tab, update the tab via onTransformFile
+      // This will handle updating the editor content (allowing undo)
+      if (onTransformFile) {
+        onTransformFile(target, compressed)
+      }
+
+      // Also write to disk
+      await window.electronAPI.writeFile(target, compressed)
+
+      showNotification(t.compressSuccess, "success")
+    } catch (error) {
+      console.error("Failed to compress level:", error)
+      showNotification(t.compressFailed, "error")
     }
     setContextMenu(null)
   }
@@ -1076,6 +1144,12 @@ export function FileExplorer({
                 {t.upgradeAndDowngrade}
               </button>
               <button
+                onClick={handleCompressLevel}
+                className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
+              >
+                {t.compressLevel}
+              </button>
+              <button
                 onClick={handleClearEffect}
                 className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
               >
@@ -1192,6 +1266,47 @@ export function FileExplorer({
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Dialog */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-[var(--menu-background)] border border-[var(--border)] rounded-lg shadow-2xl w-[450px] overflow-hidden">
+            <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)]">
+              <h3 className="text-sm font-medium text-[var(--foreground)]">{confirmDialog.title}</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-[var(--foreground)] opacity-80 leading-relaxed mb-6 whitespace-pre-wrap">
+                {confirmDialog.message}
+              </p>
+              
+              {confirmDialog.showLink && (
+                <button
+                  onClick={() => window.electronAPI.openExternal("https://github.com/adofaiex/ADOFAI-Studio/tree/main/wiki/Supported-Third-Party-Tools.md")}
+                  className="w-full mb-6 px-4 py-2 text-sm text-[var(--accent)] hover:bg-[var(--accent)]/10 border border-[var(--accent)] rounded transition-colors flex items-center justify-center gap-2"
+                >
+                  <ExternalLink size={14} />
+                  {t.viewSupportedThirdParty}
+                </button>
+              )}
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => confirmDialog.callback(false)}
+                  className="px-4 py-2 text-sm font-medium text-[var(--foreground)] opacity-70 hover:opacity-100 transition-opacity"
+                >
+                  {t.no || "No"}
+                </button>
+                <button
+                  onClick={() => confirmDialog.callback(true)}
+                  className="px-6 py-2 bg-[var(--accent)] text-white text-sm font-medium rounded hover:opacity-90 transition-opacity"
+                >
+                  {t.yes || "Yes"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

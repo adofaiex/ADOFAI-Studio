@@ -124,7 +124,10 @@ export function TabBar({
                   <FileText size={14} className={activeTabId === tab.id ? "text-[var(--foreground)] opacity-60" : ""} />
                 )}
               </div>
-              <span className={`text-[13px] truncate ${tab.modified ? "italic" : ""}`}>{tab.name}</span>
+              <span className={`text-[13px] truncate ${tab.modified ? "italic" : ""}`}>
+                {tab.editorViewMode === "design" && t("designerPrefix")}
+                {tab.name}
+              </span>
               {tab.modified && <div className="w-1.5 h-1.5 rounded-full bg-[var(--foreground)] shrink-0 ml-1" />}
             </div>
             <button

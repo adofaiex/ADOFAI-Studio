@@ -112,13 +112,13 @@ function App() {
   }, [theme])
 
   const handleFileSelect = async (filePath: string, viewMode?: "design" | "source") => {
-    const existingTab = tabs.find((tab) => tab.path === filePath)
+    const isAdofai = filePath.endsWith(".adofai")
+    const targetViewMode = viewMode || (isAdofai ? "design" : "source")
+
+    // Find if a tab with the same path AND view mode already exists
+    const existingTab = tabs.find((tab) => tab.path === filePath && tab.editorViewMode === targetViewMode)
+
     if (existingTab) {
-      if (viewMode && existingTab.editorViewMode !== viewMode) {
-        setTabs((prev) =>
-          prev.map((tab) => (tab.id === existingTab.id ? { ...tab, editorViewMode: viewMode } : tab)),
-        )
-      }
       setActiveTabId(existingTab.id)
       return
     }
@@ -126,10 +126,18 @@ function App() {
     try {
       const isImage = /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filePath)
       const isAudio = /\.(mp3|wav|ogg|flac|m4a)$/i.test(filePath)
-      const content = isImage || isAudio ? "" : await window.electronAPI.readFile(filePath)
+      
+      // Get initial content from existing tab for the same path if available
+      const existingPathTab = tabs.find(t => t.path === filePath)
+      let content = ""
+      if (existingPathTab) {
+        content = existingPathTab.content
+      } else {
+        content = isImage || isAudio ? "" : await window.electronAPI.readFile(filePath)
+      }
+
       const fileName = filePath.split(/[\\/]/).pop() || "untitled"
       const languageType = getLanguageFromPath(filePath)
-      const isAdofai = filePath.endsWith(".adofai")
 
       const unsavedContent = unsavedChanges[filePath]
       const finalContent = unsavedContent !== undefined ? unsavedContent : content
@@ -142,7 +150,7 @@ function App() {
         content: finalContent,
         modified: isModified,
         language: languageType,
-        editorViewMode: viewMode || (isAdofai ? "design" : "source"),
+        editorViewMode: targetViewMode,
       }
 
       setTabs((prev) => [...prev, newTab])
@@ -191,39 +199,48 @@ function App() {
 
   const handleContentChange = useCallback((tabId: string, content: string, modified: boolean) => {
     setTabs((prev) => {
-      const updatedTabs = prev.map((tab) => {
-        if (tab.id === tabId) {
-          if (modified) {
-            setUnsavedChanges((prevChanges) => ({ ...prevChanges, [tab.path]: content }))
-          } else {
-            setUnsavedChanges((prevChanges) => {
-              const newChanges = { ...prevChanges }
-              delete newChanges[tab.path]
-              return newChanges
-            })
-          }
+      const targetTab = prev.find(t => t.id === tabId)
+      if (!targetTab) return prev
+
+      // Update unsaved changes
+      if (modified) {
+        setUnsavedChanges((prevChanges) => ({ ...prevChanges, [targetTab.path]: content }))
+      } else {
+        setUnsavedChanges((prevChanges) => {
+          const newChanges = { ...prevChanges }
+          delete newChanges[targetTab.path]
+          return newChanges
+        })
+      }
+
+      // Sync all tabs with the same path
+      return prev.map((tab) => {
+        if (tab.path === targetTab.path) {
           return { ...tab, content, modified }
         }
         return tab
       })
-      return updatedTabs
     })
   }, [])
 
   const handleSave = useCallback((tabId: string, content: string) => {
     setTabs((prev) => {
-      const updatedTabs = prev.map((tab) => {
-        if (tab.id === tabId) {
-          setUnsavedChanges((prevChanges) => {
-            const newChanges = { ...prevChanges }
-            delete newChanges[tab.path]
-            return newChanges
-          })
+      const targetTab = prev.find(t => t.id === tabId)
+      if (!targetTab) return prev
+
+      setUnsavedChanges((prevChanges) => {
+        const newChanges = { ...prevChanges }
+        delete newChanges[targetTab.path]
+        return newChanges
+      })
+
+      // Sync all tabs with the same path to set modified: false
+      return prev.map((tab) => {
+        if (tab.path === targetTab.path) {
           return { ...tab, content, modified: false }
         }
         return tab
       })
-      return updatedTabs
     })
   }, [])
 
@@ -242,11 +259,14 @@ function App() {
   const handleTransformFile = (path: string, newContent: string) => {
     setUnsavedChanges((prev) => ({ ...prev, [path]: newContent }))
     setTabs((prev) => {
-      const idx = prev.findIndex((t) => t.path === path)
-      if (idx >= 0) {
-        const updated = [...prev]
-        updated[idx] = { ...updated[idx], content: newContent, modified: true }
-        return updated
+      const hasTabs = prev.some((t) => t.path === path)
+      if (hasTabs) {
+        return prev.map((t) => {
+          if (t.path === path) {
+            return { ...t, content: newContent, modified: true }
+          }
+          return t
+        })
       } else {
         const fileName = path.split(/[\\/]/).pop() || "untitled"
         const languageType = getLanguageFromPath(path)
@@ -257,6 +277,7 @@ function App() {
           content: newContent,
           modified: true,
           language: languageType,
+          editorViewMode: path.endsWith(".adofai") ? "design" : "source",
         }
         setActiveTabId(newTab.id)
         return [...prev, newTab]

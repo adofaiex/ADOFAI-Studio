@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react"
 import Editor from "@monaco-editor/react"
-import { FileText, Music, Play, Pause, Volume2, SkipBack, SkipForward } from "lucide-react"
+import { FileText, Music, Play, Pause, Volume2, SkipBack, SkipForward, ExternalLink } from "lucide-react"
 import type { EditorTab } from "../types/file-system"
 import type { Language } from "../lib/i18n"
 import adofaiSchema from "../lib/adofai-schema.json"
@@ -53,6 +53,34 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
     options: [],
     callback: () => {},
   })
+
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    showLink?: boolean
+    callback: (value: boolean) => void
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    callback: () => {},
+  })
+
+  const showConfirm = (title: string, message: string, showLink?: boolean): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setConfirmDialog({
+        isOpen: true,
+        title,
+        message,
+        showLink,
+        callback: (value) => {
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }))
+          resolve(value)
+        },
+      })
+    })
+  }
 
   const showSelect = (title: string, options: string[]): Promise<string | null> => {
     return new Promise((resolve) => {
@@ -313,6 +341,47 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
       }
     } catch (error) {
       console.error("Failed to format as ADOFAI:", error)
+      showNotification(t.formatFailed || "Failed to format level", "error")
+    }
+  }
+
+  const handleCompressLevel = async () => {
+    if (!tab || !tab.path.endsWith(".adofai")) return
+
+    try {
+      const confirmed = await showConfirm(t.compressLevel, t.compressConfirmMessage, true)
+      if (!confirmed) return
+
+      const currentContent = editorRef.current ? editorRef.current.getValue() : tab.content
+      const parser = new StringParser()
+      const rawObj = parser.parse(currentContent)
+
+      // Compress: single line JSON stringify
+      const compressed = JSON.stringify(rawObj)
+
+      if (editorRef.current) {
+        const model = editorRef.current.getModel()
+        if (model) {
+          model.pushStackElement()
+          model.pushEditOperations(
+            [],
+            [
+              {
+                range: model.getFullModelRange(),
+                text: compressed,
+              },
+            ],
+            () => null
+          )
+          model.pushStackElement()
+        }
+      }
+
+      onContentChange(tab.id, compressed, true)
+      showNotification(t.compressSuccess, "success")
+    } catch (error) {
+      console.error("Failed to compress level:", error)
+      showNotification(t.compressFailed, "error")
     }
   }
 
@@ -552,6 +621,14 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
       })
 
       editor.addAction({
+        id: "compress-level",
+        label: t.compressLevel,
+        contextMenuGroupId: "modification",
+        contextMenuOrder: 1.55,
+        run: handleCompressLevel,
+      })
+
+      editor.addAction({
         id: "clear-effect",
         label: "Clear Effect",
         contextMenuGroupId: "modification",
@@ -638,18 +715,6 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
     }
   }, [])
 
-  if (!tab) {
-    return (
-      <div className="h-full bg-[var(--editor-background)] flex items-center justify-center">
-        <div className="text-center text-[var(--foreground)] opacity-60">
-          <FileText size={64} className="mx-auto mb-4 opacity-50" />
-          <p className="text-lg font-medium">No file selected</p>
-          <p className="text-sm mt-2">Open a file from the Solution Explorer</p>
-        </div>
-      </div>
-    )
-  }
-
   const isDesignMode = (tab as any)?.editorViewMode === "design"
 
   useEffect(() => {
@@ -676,6 +741,18 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [isDesignMode, tab])
+
+  if (!tab) {
+    return (
+      <div className="h-full bg-[var(--editor-background)] flex items-center justify-center">
+        <div className="text-center text-[var(--foreground)] opacity-60">
+          <FileText size={64} className="mx-auto mb-4 opacity-50" />
+          <p className="text-lg font-medium">No file selected</p>
+          <p className="text-sm mt-2">Open a file from the Solution Explorer</p>
+        </div>
+      </div>
+    )
+  }
 
   if (isImage) {
     return (
@@ -861,6 +938,47 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
               >
                 {t.cancel || "Cancel"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Dialog */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-[var(--menu-background)] border border-[var(--border)] rounded-lg shadow-2xl w-[450px] overflow-hidden">
+            <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)]">
+              <h3 className="text-sm font-medium text-[var(--foreground)]">{confirmDialog.title}</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-[var(--foreground)] opacity-80 leading-relaxed mb-6 whitespace-pre-wrap">
+                {confirmDialog.message}
+              </p>
+              
+              {confirmDialog.showLink && (
+                <button
+                  onClick={() => window.electronAPI.openExternal("https://github.com/adofaiex/ADOFAI-Studio/tree/main/wiki/Supported-Third-Party-Tools.md")}
+                  className="w-full mb-6 px-4 py-2 text-sm text-[var(--accent)] hover:bg-[var(--accent)]/10 border border-[var(--accent)] rounded transition-colors flex items-center justify-center gap-2"
+                >
+                  <ExternalLink size={14} />
+                  {t.viewSupportedThirdParty}
+                </button>
+              )}
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => confirmDialog.callback(false)}
+                  className="px-4 py-2 text-sm font-medium text-[var(--foreground)] opacity-70 hover:opacity-100 transition-opacity"
+                >
+                  {t.no || "No"}
+                </button>
+                <button
+                  onClick={() => confirmDialog.callback(true)}
+                  className="px-6 py-2 bg-[var(--accent)] text-white text-sm font-medium rounded hover:opacity-90 transition-opacity"
+                >
+                  {t.yes || "Yes"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
