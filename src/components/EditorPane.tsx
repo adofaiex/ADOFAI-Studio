@@ -13,6 +13,7 @@ import type { ThemeType } from "../types/theme"
 
 import { Level } from "adofai"
 import { DesignView } from "./DesignView"
+import { upgradeLevel, downgradeLevel } from "../lib/level-utils"
 
 interface EditorPaneProps {
   tab: EditorTab | null
@@ -22,6 +23,7 @@ interface EditorPaneProps {
   onCursorPositionChange?: (line: number, column: number) => void
   language?: Language
   theme?: ThemeType
+  showNotification: (message: string, type: "info" | "success" | "error") => void
 }
 
 export const EditorPane = forwardRef<any, EditorPaneProps>((
@@ -33,11 +35,38 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
     onCursorPositionChange,
     language = "en",
     theme = "dark",
+    showNotification,
   },
   ref
 ) => {
   const t = useTranslation(language)
   const [isSaving, setIsSaving] = useState(false)
+
+  const [selectDialog, setSelectDialog] = useState<{
+    isOpen: boolean
+    title: string
+    options: string[]
+    callback: (value: string | null) => void
+  }>({
+    isOpen: false,
+    title: "",
+    options: [],
+    callback: () => {},
+  })
+
+  const showSelect = (title: string, options: string[]): Promise<string | null> => {
+    return new Promise((resolve) => {
+      setSelectDialog({
+        isOpen: true,
+        title,
+        options,
+        callback: (value) => {
+          setSelectDialog((prev) => ({ ...prev, isOpen: false }))
+          resolve(value)
+        },
+      })
+    })
+  }
   const [isImage, setIsImage] = useState(false)
   const [isAudio, setIsAudio] = useState(false)
   const [imageDataUrl, setImageDataUrl] = useState<string>("")
@@ -303,8 +332,8 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
       ]
 
       // Simple select prompt
-      const presetName = window.prompt("Select Preset:\n" + presetOptions.join("\n"), presetOptions[0])
-      if (!presetName || !presetOptions.includes(presetName)) return
+      const presetName = await showSelect(t.selectPreset, presetOptions)
+      if (!presetName) return
 
       const level = new Level(currentContent, parser)
       await new Promise<void>((resolve) => {
@@ -392,9 +421,10 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
         model.pushStackElement()
       }
       handleEditorChange(output) // Mark as modified and allow undo
+      showNotification(t.clearEffect + " " + t.createSuccess, "success")
     } catch (error) {
       console.error("Failed to clear effects:", error)
-      alert("Failed to clear effects: " + error)
+      showNotification(t.clearEffect + " " + t.createFailed + ": " + error, "error")
     }
   }
 
@@ -429,9 +459,64 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
         model.pushStackElement()
       }
       handleEditorChange(output) // Mark as modified and allow undo
+      showNotification(t.clearDeco + " " + t.createSuccess, "success")
     } catch (error) {
       console.error("Failed to clear decorations:", error)
-      alert("Failed to clear decorations: " + error)
+      showNotification(t.clearDeco + " " + t.createFailed + ": " + error, "error")
+    }
+  }
+
+  const handleUpgradeDowngrade = async () => {
+    if (!tab || !tab.path.endsWith(".adofai")) return
+
+    try {
+      const option = await showSelect(t.upgradeAndDowngrade, [t.upgrade, t.downgrade])
+      if (!option) return
+
+      const isDesignMode = (tab as any).editorViewMode === "design"
+      const currentContent = editorRef.current ? editorRef.current.getValue() : tab.content
+      const parser = new StringParser()
+      
+      // We need the raw object for our transform
+      const rawObj = parser.parse(currentContent)
+      let result
+
+      if (option === t.upgrade) {
+        result = upgradeLevel(rawObj)
+      } else {
+        result = downgradeLevel(rawObj)
+      }
+
+      if (result.success) {
+        // Re-export with formatting
+        const formatted = (await import("../lib/format")).default(JSON.parse(result.content), 0, true)
+        
+        if (editorRef.current) {
+          const model = editorRef.current.getModel()
+          if (model) {
+            model.pushStackElement()
+            model.pushEditOperations(
+              [],
+              [
+                {
+                  range: model.getFullModelRange(),
+                  text: formatted,
+                },
+              ],
+              () => null
+            )
+            model.pushStackElement()
+          }
+        }
+        
+        onContentChange(tab.id, formatted, true)
+        showNotification(option === t.upgrade ? t.upgradeSuccess : t.downgradeSuccess, "success")
+      } else {
+        showNotification(t[result.message as keyof typeof t] || result.message || (option === t.upgrade ? t.upgradeFailed : t.downgradeFailed), "error")
+      }
+    } catch (error) {
+      console.error("Failed to upgrade/downgrade:", error)
+      showNotification(t.upgradeFailed, "error")
     }
   }
 
@@ -565,6 +650,33 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
     )
   }
 
+  const isDesignMode = (tab as any)?.editorViewMode === "design"
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isDesignMode) return
+
+      // Ctrl+Z / Cmd+Z for Undo
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
+        e.preventDefault()
+        editorRef.current?.trigger("keyboard", "undo", null)
+      }
+      // Ctrl+Y / Cmd+Y or Ctrl+Shift+Z for Redo
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))) {
+        e.preventDefault()
+        editorRef.current?.trigger("keyboard", "redo", null)
+      }
+      // Ctrl+S for Save
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault()
+        handleSave()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [isDesignMode, tab])
+
   if (isImage) {
     return (
       <div className="h-full flex flex-col bg-[var(--editor-background)] overflow-hidden">
@@ -662,20 +774,11 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
     )
   }
 
-  if ((tab as any).editorViewMode === "design") {
-    return (
-      <DesignView
-        content={tab.content}
-        onChange={(newContent) => onContentChange(tab.id, newContent, true)}
-        theme={theme}
-        language={language}
-      />
-    )
-  }
+  const isAdofai = tab?.path.endsWith(".adofai")
 
   return (
-    <div className="h-full flex flex-col bg-[var(--editor-background)]">
-      <div className="flex-1">
+    <div className="h-full flex flex-col bg-[var(--editor-background)] overflow-hidden">
+      <div className={`flex-1 ${isDesignMode ? "hidden" : "block"}`}>
         <Editor
           theme={theme === "light" ? "vs" : theme === "high-contrast" ? "hc-black" : "vs-dark"}
           language={tab.language}
@@ -703,6 +806,65 @@ export const EditorPane = forwardRef<any, EditorPaneProps>((
           }}
         />
       </div>
+
+      {isDesignMode && isAdofai && (
+        <DesignView
+          content={tab.content}
+          onChange={(newContent) => {
+            if (editorRef.current) {
+              const model = editorRef.current.getModel()
+              if (model && newContent !== model.getValue()) {
+                model.pushStackElement()
+                model.pushEditOperations(
+                  [],
+                  [
+                    {
+                      range: model.getFullModelRange(),
+                      text: newContent,
+                    },
+                  ],
+                  () => null
+                )
+                model.pushStackElement()
+              }
+            }
+            onContentChange(tab.id, newContent, true)
+          }}
+          onUpgradeDowngrade={handleUpgradeDowngrade}
+          theme={theme}
+          language={language}
+        />
+      )}
+
+      {/* Select Dialog */}
+      {selectDialog.isOpen && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-[var(--menu-background)] border border-[var(--border)] rounded-lg shadow-2xl w-[420px] overflow-hidden">
+            <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)]">
+              <h3 className="text-sm font-medium text-[var(--foreground)]">{selectDialog.title}</h3>
+            </div>
+            <div className="p-3 max-h-[300px] overflow-y-auto">
+              {selectDialog.options.map((opt) => (
+                <button
+                  key={opt}
+                  className="w-full text-left px-3 py-2 rounded text-sm text-[var(--foreground)] opacity-70 hover:opacity-100 hover:bg-[var(--hover)]"
+                  onClick={() => selectDialog.callback(opt)}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+            <div className="px-4 py-3 bg-[var(--sidebar)] flex justify-end">
+              <button
+                className="px-4 py-1.5 text-xs text-[var(--foreground)] opacity-60 hover:opacity-100 hover:bg-[var(--hover)] rounded transition-colors"
+                onClick={() => selectDialog.callback(null)}
+              >
+                {t.cancel || "Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 })

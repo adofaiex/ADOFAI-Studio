@@ -23,11 +23,12 @@ import {
 interface DesignViewProps {
   content: string
   onChange: (newContent: string) => void
+  onUpgradeDowngrade?: () => void
   theme?: string
   language?: Language
 }
 
-export function DesignView({ content, onChange, theme, language = "en" }: DesignViewProps) {
+export function DesignView({ content, onChange, onUpgradeDowngrade, theme, language = "en" }: DesignViewProps) {
   const { t } = useTranslation(language)
   const [levelData, setLevelData] = useState<any>(null)
   const [activeTab, setActiveTab] = useState<string>("levelSettings")
@@ -207,8 +208,9 @@ export function DesignView({ content, onChange, theme, language = "en" }: Design
         <input
           type="number"
           value={value}
+          disabled={key === "version"}
           onChange={(e) => handleSettingChange(key, Number(e.target.value))}
-          className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--foreground)]"
+          className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--foreground)] disabled:opacity-50 disabled:cursor-not-allowed"
         />
       )
     }
@@ -217,8 +219,9 @@ export function DesignView({ content, onChange, theme, language = "en" }: Design
       <input
         type="text"
         value={value}
+        disabled={key === "version"}
         onChange={(e) => handleSettingChange(key, e.target.value)}
-        className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--foreground)]"
+        className="w-full bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--foreground)] disabled:opacity-50 disabled:cursor-not-allowed"
       />
     )
   }
@@ -327,8 +330,21 @@ export function DesignView({ content, onChange, theme, language = "en" }: Design
                           </label>
                           {renderSettingInput(key)}
                           {key === "version" && (
-                            <div className="text-[10px] text-[var(--foreground)] opacity-50 whitespace-pre-line mt-0.5">
-                              {t("versionDisabledWarning")}
+                            <div className="text-[10px] text-[var(--foreground)] opacity-50 mt-1 flex flex-col gap-1">
+                              <div>{t("versionDisabledWarning").split("\n")[0]}</div>
+                              {onUpgradeDowngrade && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    onUpgradeDowngrade()
+                                  }}
+                                  className="text-[var(--accent)] hover:underline text-left font-medium flex items-center gap-1 w-fit"
+                                >
+                                  {t("upgradeAndDowngrade")}
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>

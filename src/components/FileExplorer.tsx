@@ -18,6 +18,7 @@ import type { ViewMode } from "../types/file-system"
 import StringParser from "../lib/StringParser"
 import { type Language, useTranslation } from "../lib/i18n"
 import { Level } from "adofai"
+import { upgradeLevel, downgradeLevel } from "../lib/level-utils"
 
 interface FileExplorerProps {
   onFileSelect: (filePath: string, viewMode?: "design" | "source") => void
@@ -29,6 +30,7 @@ interface FileExplorerProps {
   isCollapsed?: boolean
   onToggleCollapse?: (collapsed: boolean) => void
   onTransformFile?: (path: string, content: string) => void
+  showNotification: (message: string, type: "info" | "success" | "error") => void
 }
 
 interface TreeNode extends FileEntry {
@@ -136,6 +138,7 @@ export function FileExplorer({
   isCollapsed: externalIsCollapsed,
   onToggleCollapse,
   onTransformFile,
+  showNotification,
 }: FileExplorerProps) {
   const t = useTranslation(language)
   const [tree, setTree] = useState<TreeNode[]>([])
@@ -462,10 +465,10 @@ export function FileExplorer({
       const filePath = `${basePath}/${fileName}`
       try {
         await window.electronAPI.createFile(filePath)
-        alert(t.createSuccess)
+        showNotification(t.createSuccess, "success")
         await refreshDirectory()
       } catch (error) {
-        alert(t.createFailed)
+        showNotification(t.createFailed, "error")
       }
     }
     setContextMenu(null)
@@ -481,10 +484,10 @@ export function FileExplorer({
       const folderPath = `${basePath}/${folderName}`
       try {
         await window.electronAPI.createFolder(folderPath)
-        alert(t.createSuccess)
+        showNotification(t.createSuccess, "success")
         await refreshDirectory()
       } catch (error) {
-        alert(t.createFailed)
+        showNotification(t.createFailed, "error")
       }
     }
     setContextMenu(null)
@@ -525,10 +528,10 @@ export function FileExplorer({
           }
         }
 
-        alert(t.renameSuccess)
+        showNotification(t.renameSuccess, "success")
         await refreshDirectory()
       } catch (error) {
-        alert(t.renameFailed)
+        showNotification(t.renameFailed, "error")
       }
     }
     setContextMenu(null)
@@ -536,13 +539,14 @@ export function FileExplorer({
 
   const handleDelete = async () => {
     if (!contextMenu) return
-    if (confirm(t.confirmDelete)) {
+    const confirmed = await showPrompt(t.deleteConfirm || t.confirmDelete || "Are you sure you want to delete this?", "")
+    if (confirmed !== null) {
       try {
         await window.electronAPI.deleteItem(contextMenu.targetPath)
-        alert(t.deleteSuccess)
+        showNotification(t.deleteSuccess || "Deleted successfully", "success")
         await refreshDirectory()
       } catch (error) {
-        alert(t.deleteFailed)
+        showNotification(t.deleteFailed || "Failed to delete", "error")
       }
     }
     setContextMenu(null)
@@ -558,6 +562,57 @@ export function FileExplorer({
     if (!contextMenu || !rootPath) return
     const relativePath = contextMenu.targetPath.replace(rootPath, "").replace(/^[\\/]/, "")
     navigator.clipboard.writeText(relativePath)
+    setContextMenu(null)
+  }
+
+  const handleUpgradeDowngrade = async () => {
+    if (!contextMenu) return
+    const target = contextMenu.targetPath
+    if (!target.endsWith(".adofai")) {
+      setContextMenu(null)
+      return
+    }
+
+    try {
+      const option = await showSelect(t.upgradeAndDowngrade, [t.upgrade, t.downgrade])
+      if (!option) {
+        setContextMenu(null)
+        return
+      }
+
+      const content = await window.electronAPI.readFile(target)
+      const parser = new StringParser()
+      const level = new Level(content, parser)
+      await new Promise<void>((resolve) => {
+        level.on("load", () => resolve())
+        level.load()
+      })
+
+      // We need the raw object for our transform
+      const rawObj = parser.parse(content)
+      let result
+
+      if (option === t.upgrade) {
+        result = upgradeLevel(rawObj)
+      } else {
+        result = downgradeLevel(rawObj)
+      }
+
+      if (result.success) {
+        // Re-export with formatting
+        const formatted = (await import("../lib/format")).default(JSON.parse(result.content), 0, true)
+        await window.electronAPI.writeFile(target, formatted)
+        if (onTransformFile) {
+          onTransformFile(target, formatted)
+        }
+        showNotification(option === t.upgrade ? t.upgradeSuccess : t.downgradeSuccess, "success")
+      } else {
+        showNotification(t[result.message as keyof typeof t] || result.message || (option === t.upgrade ? t.upgradeFailed : t.downgradeFailed), "error")
+      }
+    } catch (error) {
+      console.error("Failed to upgrade/downgrade:", error)
+      showNotification(t.upgradeFailed, "error")
+    }
     setContextMenu(null)
   }
 
@@ -598,10 +653,10 @@ export function FileExplorer({
         onTransformFile(target, output)
       }
       await window.electronAPI.writeFile(target, output)
-      alert(t.clearEffect + " " + t.createSuccess)
+      showNotification(t.clearEffect + " " + t.createSuccess, "success")
     } catch (error) {
       console.error("Failed to clear effects:", error)
-      alert(t.clearEffect + " " + t.createFailed)
+      showNotification(t.clearEffect + " " + t.createFailed, "error")
     }
     setContextMenu(null)
   }
@@ -627,10 +682,10 @@ export function FileExplorer({
         onTransformFile(target, output)
       }
       await window.electronAPI.writeFile(target, output)
-      alert(t.clearDeco + " " + t.createSuccess)
+      showNotification(t.clearDeco + " " + t.createSuccess, "success")
     } catch (error) {
       console.error("Failed to clear decorations:", error)
-      alert(t.clearDeco + " " + t.createFailed)
+      showNotification(t.clearDeco + " " + t.createFailed, "error")
     }
     setContextMenu(null)
   }
@@ -1014,6 +1069,12 @@ export function FileExplorer({
                 {t.openInSourceView}
               </button>
               <div className="border-t border-[var(--border)] my-1" />
+              <button
+                onClick={handleUpgradeDowngrade}
+                className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
+              >
+                {t.upgradeAndDowngrade}
+              </button>
               <button
                 onClick={handleClearEffect}
                 className="w-full px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"

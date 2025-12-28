@@ -40,6 +40,12 @@ function App() {
   const [isExplorerCollapsed, setIsExplorerCollapsed] = useState(false)
   const [unsavedChanges, setUnsavedChanges] = useState<Record<string, string>>({}) // path -> content
   const [externalLangsLoaded, setExternalLangsLoaded] = useState(false)
+  const [notification, setNotification] = useState<{ message: string; type: "info" | "success" | "error" } | null>(null)
+
+  const showNotification = useCallback((message: string, type: "info" | "success" | "error" = "info") => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 3000)
+  }, [])
 
   // Load external translations and persistent config
   useEffect(() => {
@@ -376,6 +382,7 @@ function App() {
               isCollapsed={isExplorerCollapsed}
               onToggleCollapse={setIsExplorerCollapsed}
               onTransformFile={handleTransformFile}
+              showNotification={showNotification}
             />
           </div>
 
@@ -403,6 +410,7 @@ function App() {
               onCursorPositionChange={handleCursorPositionChange}
               language={language}
               theme={theme}
+              showNotification={showNotification}
             />
           </div>
         </div>
@@ -415,6 +423,24 @@ function App() {
         lineNumber={cursorPosition.line}
         columnNumber={cursorPosition.column}
       />
+
+      {/* Notifications */}
+      {notification && (
+        <div className="fixed bottom-12 right-6 z-[3000] animate-in slide-in-from-right-full fade-in duration-300">
+          <div className={`px-4 py-3 rounded-lg shadow-2xl border flex items-center gap-3 min-w-[300px] ${
+            notification.type === "success" ? "bg-green-500/10 border-green-500/50 text-green-500" :
+            notification.type === "error" ? "bg-red-500/10 border-red-500/50 text-red-500" :
+            "bg-[var(--accent)]/10 border-[var(--accent)]/50 text-[var(--accent)]"
+          }`}>
+            <div className={`w-2 h-2 rounded-full ${
+              notification.type === "success" ? "bg-green-500" :
+              notification.type === "error" ? "bg-red-500" :
+              "bg-[var(--accent)]"
+            }`} />
+            <span className="text-sm font-medium">{notification.message}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
